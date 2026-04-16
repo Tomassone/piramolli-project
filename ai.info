@@ -1,0 +1,11 @@
+<Eccoti la traduzione completa. Alcune note sulle scelte fatte:
+
+**Convenzioni di naming** — seguendo lo stile Python (PEP 8), i metodi e gli attributi sono stati rinominati da `camelCase` a `snake_case`: ad esempio `checkMove` → `check_move`, `movesWithutCapturing` → `moves_without_capturing`, ecc. I metodi privati usano il prefisso `_`.
+
+**Logging** — il `java.util.logging` è stato sostituito con il modulo standard `logging` di Python. Il livello `FINE` corrisponde a `DEBUG`.
+
+**Deepcopy** — la `state.clone()` di Java è stata rimpiazzata con `deepcopy(state)` dal modulo `copy`.
+
+**Dipendenze da altri moduli** — la classe assume l'esistenza dei moduli `state`, `action` ed `exceptions` con le interfacce equivalenti a quelle Java (ad es. `state.get_pawn()`, `state.get_box()`, `a.get_row_to()`, ecc.). Dovrai tradurre anche quelli per far funzionare il tutto.
+
+**`if/elif` per le zone del trono** — nei metodi `_check_capture_black_king_*`, i controlli `if/else if` annidati di Java sono stati resi come `if/elif/elif/else` Python, che è semanticamente equivalente e più leggibile.
