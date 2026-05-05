@@ -10,7 +10,7 @@ import encoding # per la codifica dello stato del gioco
 # - Strato 5: posizione delle vie di fuga
 # - Strato 6: turno del giocatore (1 per bianco, 0 per nero)
 
-class RealGameAdapter:
+class Game:
     # Stato contiene white, black, re, side_to_move
     def get_initial_state(self):
         return {
@@ -151,5 +151,32 @@ class RealGameAdapter:
     
 
     def get_winner(self, state):
-        # Implementare logica per restituire il vincitore dello stato attuale
-        pass
+        king_pos = state.get("king_position")
+        side_to_move = state.get("side_to_move", state.get("turn_to_move"))
+
+        # 1) Re catturato -> vince Black
+        if king_pos is None:
+            return 0  # BLACK
+
+        # 2) Re arrivato su una escape square -> vince White
+        if self._is_escape_square(king_pos):
+            return 1  # WHITE
+
+        # 3) Nessuna mossa legale -> perde il giocatore di turno
+        valid_moves = self.get_valid_moves(state)
+        if len(valid_moves) == 0:
+            if side_to_move == 1:
+                return 0  # tocca al bianco e non può muovere -> vince Black
+            else:
+                return 1  # tocca al nero e non può muovere -> vince White
+
+        # 4) Ripetizione
+        repetition_count = state.get("repetition_count", 0)
+        if repetition_count >= 3:
+            repetition_loser = state.get("repetition_loser")
+            if repetition_loser is not None:
+                return 0 if repetition_loser == 1 else 1
+            return -1  # draw / sconosciuto
+
+        # Se non terminale, non dovrebbe essere chiamato
+        raise ValueError("get_winner called on a non-terminal state")
