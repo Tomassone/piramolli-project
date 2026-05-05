@@ -1,27 +1,128 @@
+import encoding # per la codifica dello stato del gioco
+
+# STATO:
+# Tensore 9*9*7, gli "strati" rappresentano le seguenti informazioni:
+# - Strato 0: posizione dei pezzi bianchi (1 se c'è un pezzo bianco, 0 altrimenti)
+# - Strato 1: posizione dei pezzi neri (1 se c'è un pezzo nero, 0 altrimenti)
+# - Strato 2: posizione del re
+# - Strato 3: posizione del trono
+# - Strato 4: posizione dei camps
+# - Strato 5: posizione delle vie di fuga
+# - Strato 6: turno del giocatore (1 per bianco, 0 per nero)
+
 class RealGameAdapter:
+    # Stato contiene white, black, re, side_to_move
     def get_initial_state(self):
-        # Implementare logica per restituire lo stato iniziale del gioco:
-        # Tensore 9*9*7, gli "strati" rappresentano le seguenti informazioni:
-        # - Strato 0: posizione dei pezzi bianchi (1 se c'è un pezzo bianco, 0 altrimenti)
-        # - Strato 1: posizione dei pezzi neri (1 se c'è un pezzo nero, 0 altrimenti)
-        # - Strato 2: posizione del re
-        # - Strato 3: posizione del trono
-        # - Strato 4: posizione dei camps
-        # - Strato 5: posizione delle vie di fuga
-        # - Strato 6: turno del giocatore (1 per bianco, 0 per nero)
-        pass
+        return {
+                'white_positions': [
+                    (2, 4), (3, 4), (4, 2), (4, 3), 
+                    (4, 5), (4, 6), (5, 4), (6, 4)
+                ],
+                'black_positions': [
+                    (0, 3), (0, 4), (0, 5), (1, 4),
+                    (3, 0), (4, 0), (5, 0), (4, 1),
+                    (8, 3), (8, 4), (8, 5), (7, 4),
+                    (3, 8), (4, 8), (5, 8), (4, 7)
+                ],
+                'king_position': (4, 4),
+                'side_to_move': 1
+            }
+        
 
     def get_valid_moves(self, state):
-        # Implementare logica per restituire le mosse valide dallo stato attuale
-        pass            
+        moves = []
+
+        white_positions = state["white_positions"]
+        black_positions = state["black_positions"]
+        king_position = state["king_position"]
+        turn = state["turn_to_move"]
+
+        occupied = {tuple(pos) for pos in white_positions}
+        occupied.update(tuple(pos) for pos in black_positions)
+        if king_position is not None:
+            occupied.add(tuple(king_position))
+
+        if turn == 1:
+            pieces = [pos[:] for pos in white_positions]
+            if king_position is not None:
+                pieces.append(king_position[:])
+        else:
+            pieces = [pos[:] for pos in black_positions]
+
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        for piece in pieces:
+            r0, c0 = piece
+            is_king = (king_position is not None and piece == king_position)
+            is_black = piece in black_positions
+            start_in_camp = (r0, c0) in self.CAMPS
+
+            for dr, dc in directions:
+                step = 1
+                while True:
+                    r = r0 + dr * step
+                    c = c0 + dc * step
+
+                    if not self._inside_board(r, c):
+                        break
+
+                    cell = (r, c)
+
+                    if cell in occupied:
+                        break
+
+                    if self._is_throne(cell):
+                        if not is_king:
+                            break
+
+                    if cell in self.CAMPS:
+                        if is_black:
+                            if not start_in_camp:
+                                break
+                        else:
+                            break
+
+                    moves.append([[r0, c0], [r, c]])
+                    step += 1
+
+        return moves
+
+    def _inside_board(self, r, c):
+        return 0 <= r < self.BOARD_SIZE and 0 <= c < self.BOARD_SIZE
+
+    def _is_throne(self, cell):
+        return cell[0] == self.THRONE[0] and cell[1] == self.THRONE[1]           
 
     def get_next_state(self, state, action):
         # Implementare logica per restituire il nuovo stato dopo aver applicato l'azione
         pass
 
-    def is_terminal(self, state):
-        # Implementare logica per verificare se lo stato è terminale
-        pass
+    def is_terminal(self, state) -> bool:
+        king_pos = state["king_position"]
+
+        # Re catturato
+        if king_pos is None:
+            return True
+
+        # Re arrivato al bordo
+        if self._is_escape_square(king_pos):
+            return True
+
+        # Nessuna mossa legale per il player di turno
+        valid_moves = self.get_valid_moves(state)
+        if len(valid_moves) == 0:
+            return True
+
+        # Ripetizione, solo se la tieni nello stato o altrove
+        repetition_count = state.get("repetition_count", 0)
+        if repetition_count >= 3:
+            return True
+
+        return False
+
+    def _is_escape_square(self, pos) -> bool:
+        return pos in encoding.ESCAPES
+    
 
     def get_winner(self, state):
         # Implementare logica per restituire il vincitore dello stato attuale

@@ -17,6 +17,8 @@ ESCAPES = {
 }
 
 
+# Trono, accampamenti e vie di fuga sono statici, per la struttura dello stato bastano gli altri canali
+# Conversione da stato a tensore 9*9*7:
 def encode_state(state: dict) -> np.ndarray:
     x = np.zeros((NUM_CHANNELS, BOARD_SIZE, BOARD_SIZE), dtype=np.float32)
 
