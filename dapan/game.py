@@ -94,8 +94,34 @@ class RealGameAdapter:
         return cell[0] == self.THRONE[0] and cell[1] == self.THRONE[1]           
 
     def get_next_state(self, state, action):
-        # Implementare logica per restituire il nuovo stato dopo aver applicato l'azione
-        pass
+        import copy
+        new_state = {k: copy.deepcopy(v) for k, v in state.items()}
+
+        r0, c0 = tuple(action[0])
+        r1, c1 = tuple(action[1])
+
+        # Move White
+        if (r0, c0) in new_state.get('white_positions', []):
+            new_state['white_positions'].remove((r0, c0))
+            new_state['white_positions'].append((r1, c1))
+            
+        # Move Black
+        if (r0, c0) in new_state.get('black_positions', []):
+            new_state['black_positions'].remove((r0, c0))
+            new_state['black_positions'].append((r1, c1))
+
+        # Move King
+        if new_state.get('king_position') == (r0, c0):
+            new_state['king_position'] = (r1, c1)
+
+        # Toggle turn
+        if 'side_to_move' in new_state:
+            new_state['side_to_move'] = 1 - new_state['side_to_move']
+        if 'turn_to_move' in new_state:
+            new_state['turn_to_move'] = 1 - new_state['turn_to_move']
+
+        # TODO: Implement complete capturing logic (Ashton Tablut sandwich rules)
+        return new_state
 
     def is_terminal(self, state) -> bool:
         king_pos = state["king_position"]
