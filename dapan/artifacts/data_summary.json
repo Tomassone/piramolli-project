@@ -1,0 +1,29 @@
+{
+  "buffer_size": 512,
+  "states_shape": [
+    64,
+    7,
+    9,
+    9
+  ],
+  "pis_shape": [
+    64,
+    6561
+  ],
+  "zs_shape": [
+    64,
+    1
+  ],
+  "pi_sum_example": 1.0,
+  "z_examples": [
+    1.0,
+    1.0,
+    1.0,
+    0.0,
+    -1.0,
+    0.0,
+    -1.0,
+    1.0
+  ],
+  "torch_available": true
+}
