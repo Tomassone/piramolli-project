@@ -11,7 +11,21 @@ import encoding # per la codifica dello stato del gioco
 # - Strato 6: turno del giocatore (1 per bianco, 0 per nero)
 
 class Game:
-    # Stato contiene white, black, re, side_to_move
+    # Stato contiene white, black, re, turn_to_move
+    BOARD_SIZE = 9
+    THRONE = (4, 4)
+    CAMPS = {
+        # Top
+        (0, 3), (0, 4), (0, 5), (1, 4),
+        # Bottom
+        (8, 3), (8, 4), (8, 5), (7, 4),
+        # Left
+        (3, 0), (4, 0), (5, 0), (4, 1),
+        # Right
+        (3, 8), (4, 8), (5, 8), (4, 7),
+    }
+    ESCAPES = encoding.ESCAPES
+
     def get_initial_state(self):
         return {
                 'white_positions': [
@@ -25,7 +39,7 @@ class Game:
                     (3, 8), (4, 8), (5, 8), (4, 7)
                 ],
                 'king_position': (4, 4),
-                'side_to_move': 1
+                'turn_to_move': 1
             }
         
 
@@ -115,8 +129,6 @@ class Game:
             new_state['king_position'] = (r1, c1)
 
         # Toggle turn
-        if 'side_to_move' in new_state:
-            new_state['side_to_move'] = 1 - new_state['side_to_move']
         if 'turn_to_move' in new_state:
             new_state['turn_to_move'] = 1 - new_state['turn_to_move']
 
@@ -152,7 +164,7 @@ class Game:
 
     def get_winner(self, state):
         king_pos = state.get("king_position")
-        side_to_move = state.get("side_to_move", state.get("turn_to_move"))
+        turn_to_move = state.get("turn_to_move", state.get("turn_to_move"))
 
         # 1) Re catturato -> vince Black
         if king_pos is None:
@@ -165,7 +177,7 @@ class Game:
         # 3) Nessuna mossa legale -> perde il giocatore di turno
         valid_moves = self.get_valid_moves(state)
         if len(valid_moves) == 0:
-            if side_to_move == 1:
+            if turn_to_move == 1:
                 return 0  # tocca al bianco e non può muovere -> vince Black
             else:
                 return 1  # tocca al nero e non può muovere -> vince White
