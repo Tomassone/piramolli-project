@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 from collections import deque
-import encoding
 
 BOARD_SIZE = 9
 ACTION_SIZE = BOARD_SIZE ** 4  # 6561
@@ -57,7 +56,15 @@ class Game:
     #   e1 = (0,4), a5 = (4,0), i5 = (4,8), e9 = (8,4)
     _STRANGE_CAMPS = {(0, 4), (4, 0), (4, 8), (8, 4)}
 
-    _ESCAPES = encoding.ESCAPES
+    # Edge cells reachable by the king (excludes camp cells on the edge,
+    # which the king can never enter anyway — so this is equivalent to
+    # the Java's "any edge cell" win condition given legal move generation).
+    _ESCAPES = {
+        (0, 1), (0, 2), (0, 6), (0, 7),
+        (1, 0), (2, 0), (6, 0), (7, 0),
+        (8, 1), (8, 2), (8, 6), (8, 7),
+        (1, 8), (2, 8), (6, 8), (7, 8),
+    }
     _HISTORY_LEN = 8
 
     # Maximum distance a black piece can travel within its own camp group.
