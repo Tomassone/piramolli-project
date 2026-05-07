@@ -37,48 +37,7 @@ def init_onnx_engine(model_path="modello_onnx_finale.onnx"):
     print("[*] Turno iniziato! Orologio partito.")
     tempo_inizio = time.time()
     
-    # -------------------------------------------------------------
-    # 1. QUI IL MEMBRO 1 INIZIALIZZA LA SCACCHIERA DAL JSON
-    # Esempio:
-    # stato_attuale = TablutBoard.from_json(scacchiera_json)
-    # -------------------------------------------------------------
-    
-    # -------------------------------------------------------------
-    # 2. QUI IL MEMBRO 2 INIZIALIZZA L'ALBERO MCTS
-    # Esempio:
-    # mcts = MCTS(motore=motore_onnx)
-    # -------------------------------------------------------------
-    
-    iterazioni = 0
-    
-    # 3. IL CICLO DELLA SICUREZZA (58.0 secondi)
-    while (time.time() - tempo_inizio) < 58.0:
-        
-        # ---------------------------------------------------------
-        # QUI L'MCTS ESPLORA I RAMI (Questa è la riga pesante)
-        # Esempio:
-        # mcts.esplora_un_ramo(stato_attuale)
-        # ---------------------------------------------------------
-        
-        iterazioni += 1
-        
-        # -- RIGA FINTO-MCTS (DA CANCELLARE QUANDO HAI IL CODICE VERO) --
-        time.sleep(0.001)  # Finge di pensare per 1 millisecondo
-        # ---------------------------------------------------------------
-
-    # Il tempo di 58.0 secondi è scaduto!
-    print(f"[*] Fine pensiero. Ho valutato {iterazioni} percorsi possibili.")
-    
-    # -------------------------------------------------------------
-    # 4. CHIEDI AL MCTS QUAL È LA MOSSA MIGLIORE E PREPARA LA STRINGA
-    # Esempio:
-    # mossa_migliore = mcts.dammi_mossa_migliore()
-    # -------------------------------------------------------------
-    
-    # Ritorna la mossa in formato stringa per mandarla all'arbitro
-    mossa_finta = "E2-E4"  # Sostituisci con la vera mossa decisa dall'MCTS
-    return mossa_finta
-
+ 
 def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
     """
     Questa funzione fa partire il TIMER.
