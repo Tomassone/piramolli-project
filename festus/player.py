@@ -1,6 +1,7 @@
 import time
 import json
 import socket
+import struct
 import onnxruntime as ort
 import sys
 import argparse
@@ -30,12 +31,6 @@ def init_onnx_engine(model_path="modello_onnx_finale.onnx"):
         print(f"[!] ERRORE ONNX: Impossibile caricare il modello. {e}")
         return None
 
-    """
-    Questa funzione fa partire il TIMER DI 58 SECONDI.
-    Si innesca nel momento esatto in cui riceviamo la scacchiera dall'arbitro.
-    """
-    print("[*] Turno iniziato! Orologio partito.")
-    tempo_inizio = time.time()
     
  
 def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
@@ -84,8 +79,35 @@ def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
     # -------------------------------------------------------------
     
     # Ritorna la mossa in formato stringa per mandarla all'arbitro
-    mossa_finta = "E2-E4"  # Sostituisci con la vera mossa decisa dall'MCTS
-    return mossa_finta
+    dizionario_mossa = {
+        "from": casella_partenza,
+        "to": casella_arrivo,
+        "turn": ruolo_giocatore
+    }
+
+    # 2. Lo converti in una stringa JSON
+    mossa = json.dumps(dizionario_mossa)
+    return mossa
+
+def recvall(sock, n):
+    # Helper function to recv n bytes or return None if EOF is hit
+    data = b''
+    while len(data) < n:
+        packet = sock.recv(n - len(data))
+        if not packet:
+            return None
+        data += packet
+    return data
+def ricevi_scacchiera(sock):
+
+    len_bytes = struct.unpack('>i', recvall(sock, 4))[0]
+    current_state = json.loads(sock.recv(len_bytes))
+    return current_state
+
+def invia_scacchiera(sock, mossa, color):
+    sock.send(struct.pack('>i', len(mossa)))
+    sock.send(mossa.encode())
+
 
 def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo, timeout):
     """
@@ -96,10 +118,12 @@ def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo, timeout):
     # Questo print usa i parametri che abbiamo estratto tramite argparse
     print(f"[*] In attesa di connettersi all'Arbitro su {ip_arbitro}:{porta_arbitro} come {ruolo}...")
     
-    # --- LOGICA DI CONNESSIONE SOCKET VERA (Da inserire in futuro) ---
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # s.connect((ip_arbitro, porta_arbitro))
-    # s.send(ruolo.encode())  # Es: Diciamo al server "Sono il WHITE"
+    # --- LOGICA DI CONNESSIONE SOCKET VERA  ---
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((ip_arbitro, porta_arbitro))
+    player_name= "Piramollo"
+    s.send(struct.pack('>i', len(player_name)))
+    s.send(player_name.encode())
     # -----------------------------------------------------------------
 
     # Finto ciclo per simulare la gara in attesa del vero codice socket
@@ -108,11 +132,12 @@ def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo, timeout):
         time.sleep(2) # Simula l'attesa fisica
         
         # L'arbitro ci manda il JSON della scacchiera
-        finto_json_ricevuto_dall_arbitro = '{"turn": "WHITE", "board": "..."}'
+
+        scacchiera_ricevuta_json = ricevi_scacchiera()
         print("[*] L'Arbitro ha mandato la scacchiera! È il mio turno.")
         
         # -> NOTA CHIAVE: Qui passiamo il 'timeout' dinamico calcolato da argparse!
-        mossa_decisa = pensa_e_muovi(finto_json_ricevuto_dall_arbitro, motore, timeout)
+        mossa_decisa = pensa_e_muovi(scacchiera_ricevuta_json, motore, timeout)
         
         print(f"[*] Invio mossa all'Arbitro: {mossa_decisa}")
         # s.send(mossa_decisa.encode())
@@ -145,8 +170,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--port",
         type=int,
-        default=8901,
-        help="Porta del Server Arbitro (default: 8901)"
+        default=-1,
+        help="Porta del Server Arbitro (default:  BIANCO: 5800, NERO: 5801)"
     )
     parser.add_argument(
         "--time_margin",
@@ -167,7 +192,7 @@ if __name__ == "__main__":
     ruolo = args.role
     timeout_imposto = args.timeout
     ip_server = args.server_ip
-    porta_server = args.port
+    porta_server = (5800 if ruolo == "WHITE" else 5801) if args.port < 0 else args.portw
     margin= args.time_margin
 
     # Calcola il tuo margine di sicurezza brutalmente vitale (es. -2.0 secondi)
