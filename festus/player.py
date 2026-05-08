@@ -5,6 +5,8 @@ import struct
 import onnxruntime as ort
 import sys
 import argparse
+from TablutGame import TablutGame 
+import copy
 
 # ==============================================================================
 # QUI IMPORTI I CODICI DEI TUOI COLLEGHI (QUANDO SARANNO PRONTI)
@@ -47,10 +49,43 @@ def init_onnx_engine(model_path="modello_onnx_finale.onnx"):
 #    "turn": "W"
 #}
  
+def json_to_board_dict(scacchiera_json):
+    """
+    Prende il JSON del server (matrice 9x9 di stringhe) e restituisce 
+    SOLO il dizionario dei pezzi che il tuo TablutGame si aspetta.
+    """
+    matrix = scacchiera_json['board']
+    turn_str = scacchiera_json['turn']
+    
+    white_pos = []
+    black_pos = []
+    king_pos = None
+    
+    for r in range(9):
+        for c in range(9):
+            val = matrix[r][c]
+            if val == 'W':
+                white_pos.append((r, c))
+            elif val == 'B':
+                black_pos.append((r, c))
+            elif val == 'K':
+                king_pos = (r, c)
+                
+    # Nel TablutGame del tuo collega: 1 = BIANCO, 0 = NERO
+    turn_to_move = 1 if turn_str == "W" else 0
+    
+    return {
+        'white_positions': white_pos,
+        'black_positions': black_pos,
+        'king_position': king_pos,
+        'turn_to_move': turn_to_move
+    }
+
+
 def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
     """
-    Questa funzione fa partire il TIMER.
-    Si ferma dinamicamente basandosi sul parametro 'tempo_sicuro_disponibile'.
+    mantenere lo satto esternamente 
+
     """
     print(f"[*] Turno iniziato! Orologio partito per {tempo_sicuro_disponibile:.1f} secondi.")
     tempo_inizio = time.time()
@@ -114,21 +149,23 @@ def recvall(sock, n):
 
 
 def ricevi_scacchiera(sock):
-
-    len_bytes_raw = struct.unpack('>i', recvall(sock, 4))[0]
-
-    len_bytes = struct.unpack('>i', len_bytes_raw)[0]
-
+    raw_len = recvall(sock, 4)
+    if raw_len is None:
+        return None # Il server ha chiuso la connessione
+    
+    len_bytes = struct.unpack('>i', raw_len)[0]
+    
     json_bytes = recvall(sock, len_bytes)
-
-    current_state = json.loads(json_bytes.decode('utf-8'))#funzionerà si spera
-    #non ho messo controlli, sbatti
+    if json_bytes is None:
+        return None
+        
+    current_state = json.loads(json_bytes.decode('utf-8'))
     return current_state
 
 def invia_scacchiera(sock, mossa):
-    sock.send(struct.pack('>i', len(mossa)))
-    sock.send(mossa.encode())
-
+    payload_bytes = mossa.encode('utf-8')
+    sock.send(struct.pack('>i', len(payload_bytes)))
+    sock.send(payload_bytes)
 
 def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo):
     """
@@ -151,13 +188,19 @@ def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo):
 
 def gioca_partita(s, ruolo, timeout):
     motore = init_onnx_engine()
+
+
+    game = TablutGame()
+    scacchiera_iniziale = game.getInitBoard()['board']
     
-    # Finto ciclo per simulare la gara in attesa del vero codice socket
+    history_8 =  [copy.deepcopy(scacchiera_iniziale) for _ in range(8)]     # Le ultime 8 scacchiere
+    draw_history = []    # Per i pareggi
+    pezzi_totali = 25    # Per capire se qualcuno è morto (Tablut: 16 neri + 9 bianchi)
+    move_count=0
     while True:
         # L'arbitro ci manda il JSON della scacchiera
 
         scacchiera_ricevuta = ricevi_scacchiera(s)
-
         turn_del_server = scacchiera_ricevuta.get('turn')
         
         # Controllo condizioni di fine partita
@@ -171,11 +214,32 @@ def gioca_partita(s, ruolo, timeout):
             print("LA PARTITA È FINITA: PAREGGIO!")
             break
 
+        board_dict=json_to_board_dict(scacchiera_ricevuta)
+        history_8.pop(0)
+        history_8.append(board_dict)
+        pezzi_attuali = len(board_dict['white_positions']) + len(board_dict['black_positions'])
+        if pezzi_attuali < pezzi_totali:
+            draw_history = []  # Qualcuno è morto, resetto la lista delle configurazioni già viste (le altre non sono più raggiungibili)
+            pezzi_totali = pezzi_attuali
+
+        hash_corrente=game._board_hash(board_dict)
+        draw_history.append(hash_corrente)
+
         if (ruolo == "WHITE" and turn_del_server == "W") or \
            (ruolo == "BLACK" and turn_del_server == "B"):
             
             print(f"[*] È il mio turno ({ruolo}).")
-            mossa_decisa = pensa_e_muovi(scacchiera_ricevuta, motore, timeout)
+            #  TablutGame si aspetta questo formato di stato
+            state_root = {
+                'board': board_dict,
+                'history': list(history_8),
+                'move_count': move_count, 
+                'half_move_clock':  len(draw_history) - 1, #mosse dall'ultima cattura, funziona considerato che la resetto ogni volta che ne vedo una
+                'draw_history': list(draw_history),
+                'repetition_count': draw_history.count(hash_corrente) - 1 
+            }
+            
+            mossa_decisa = pensa_e_muovi(state_root, motore, timeout)
             
             print(f"[*] Invio mossa all'Arbitro: {mossa_decisa}")
             invia_scacchiera(s, mossa_decisa) 
@@ -184,6 +248,8 @@ def gioca_partita(s, ruolo, timeout):
             # È il turno dell'avversario. Non devi fare nulla, solo aspettare che lui muova 
             # e che il server ti mandi la prossima scacchiera aggiornata.
             print(f"[*] Turno dell'avversario. In attesa...")
+        
+        move_count=move_count+1
             
     # Fine del ciclo while (partita terminata)
     s.close()
