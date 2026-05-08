@@ -107,7 +107,7 @@ class TablutGame(Game):
             # capture, mirroring the Java's drawConditions list.
             'draw_history': [],
             'repetition_count': 0,
-            'repetition_loser': None,
+            # 'repetition_loser': None,
         }
 
     def getBoardSize(self):
@@ -170,6 +170,25 @@ class TablutGame(Game):
             if b['king_position'] is not None:
                 b['king_position'] = transform_pos(
                     *b['king_position'], k_rot, do_flip)
+
+            # Transform every historical snapshot too, so encode_state
+            # sees a consistent orientation across all 8 history planes.
+            new_history = deque(maxlen=self._HISTORY_LEN)
+            for snap in new_state['history']:
+                new_snap = copy.deepcopy(snap)
+                new_snap['white_positions'] = [
+                    transform_pos(r, c, k_rot, do_flip)
+                    for r, c in new_snap['white_positions']
+                ]
+                new_snap['black_positions'] = [
+                    transform_pos(r, c, k_rot, do_flip)
+                    for r, c in new_snap['black_positions']
+                ]
+                if new_snap['king_position'] is not None:
+                    new_snap['king_position'] = transform_pos(
+                        *new_snap['king_position'], k_rot, do_flip)
+                new_history.append(new_snap)
+            new_state['history'] = new_history
             return new_state
 
         def transform_pi(pi_vec, k_rot, do_flip):
@@ -203,21 +222,22 @@ class TablutGame(Game):
 
     def encode_state(self, state) -> np.ndarray:
         """
-        Encodes the full game state into a (9, 9, 43) float32 tensor.
+        Encodes the full game state into a (9, 9, 28) float32 tensor.
 
-        Planes 0-39: 8 history steps × 5 planes [friendly, enemy, king, rep≥1, rep≥2]
-        Plane 40: player colour (1.0 = white to move)
-        Plane 41: move count normalised
-        Plane 42: half-move clock normalised
+        Planes 0-23: 8 history steps × 3 planes [friendly, enemy, king]
+        Plane 24: repetition flag (1.0 if current position has been seen before)
+        Plane 25: player colour (1.0 = white to move)
+        Plane 26: move count normalised
+        Plane 27: half-move clock normalised
         """
         tensor = np.zeros(
-            (self._BOARD_SIZE, self._BOARD_SIZE, 43), dtype=np.float32)
+            (self._BOARD_SIZE, self._BOARD_SIZE, 28), dtype=np.float32)
         board = state['board']
         history = state['history']
         turn = board['turn_to_move']
 
         for step_idx, snap in enumerate(reversed(history)):
-            base = step_idx * 5
+            base = step_idx * 3
             wp = set(snap['white_positions'])
             bp = set(snap['black_positions'])
             kp = snap['king_position']
@@ -230,37 +250,22 @@ class TablutGame(Game):
             if kp is not None:
                 tensor[kp[0], kp[1], base + 2] = 1.0
 
-            if step_idx == 0:
-                rep = state.get('repetition_count', 0)
-                if rep >= 1:
-                    tensor[:, :, base + 3] = 1.0
-                if rep >= 2:
-                    tensor[:, :, base + 4] = 1.0
+        if state.get('repetition_count', 0) >= 1:
+            tensor[:, :, 24] = 1.0
 
-        tensor[:, :, 40] = float(turn)
-        tensor[:, :, 41] = min(state['move_count'] / 200.0, 1.0)
-        tensor[:, :, 42] = min(state['half_move_clock'] / 40.0, 1.0)
+        tensor[:, :, 25] = float(turn)
+        tensor[:, :, 26] = min(state['move_count'] / 200.0, 1.0)
+        tensor[:, :, 27] = min(state['half_move_clock'] / 40.0, 1.0)
         return tensor
 
     # ── Move generation ───────────────────────────────────────────────────────
-
+    
     def _get_raw_moves(self, state):
-        """
-        Generates all legal moves as [[r0,c0],[r1,c1]] pairs.
-
-        Key rules matched to the Java validator:
-          - No piece (except the king) may enter or pass through the throne.
-          - White pieces may never enter or pass through a camp.
-          - Black pieces may enter camps only if they start inside one, AND
-            the destination is within _MAX_CAMP_SLIDE squares (prevents
-            sliding from one camp cluster to the opposite one).
-          - No piece may jump over another piece or the throne.
-        """
-        board = state['board'] if 'board' in state else state
+        board = state['board']
         moves = []
 
-        wp = set(map(tuple, board['white_positions']))
-        bp = set(map(tuple, board['black_positions']))
+        wp = set(board['white_positions'])
+        bp = set(board['black_positions'])
         kp = board.get('king_position')
         turn = board['turn_to_move']
 
@@ -292,16 +297,19 @@ class TablutGame(Game):
                         break
 
                     if (r, c) in self._CAMPS:
-                        if is_black:
-                            # Black can only re-enter its own camp cluster,
-                            # and cannot slide more than 5 squares to do so.
-                            if not start_in_camp:
-                                break
+                        if is_black and start_in_camp:
+                            # Black starting inside a camp may pass through and
+                            # land on other camp cells, but only within 5 squares
+                            # (Java rejects |row_from - row_to| > 5 and same for col).
+                            # We still add the move if within range, then keep sliding —
+                            # the piece can pass through intermediate camp cells freely.
                             dist = abs(r - r0) + abs(c - c0)
                             if dist > self._MAX_CAMP_SLIDE:
                                 break
+                            # valid camp-to-camp landing — fall through to append
                         else:
-                            # White (and the king) can never enter a camp.
+                            # White, king, or black not starting in a camp:
+                            # cannot enter or pass through a camp cell at all.
                             break
 
                     moves.append([[r0, c0], [r, c]])

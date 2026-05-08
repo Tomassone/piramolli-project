@@ -31,7 +31,21 @@ def init_onnx_engine(model_path="modello_onnx_finale.onnx"):
         print(f"[!] ERRORE ONNX: Impossibile caricare il modello. {e}")
         return None
 
-    
+# scacchiera json
+#{
+#    "board": [
+#        ["O", "O", "O", "B", "B", "B", "O", "O", "O"],
+#        ["O", "O", "O", "O", "B", "O", "O", "O", "O"],
+#        ["O", "O", "O", "O", "W", "O", "O", "O", "O"],
+#        ["B", "O", "O", "O", "W", "O", "O", "O", "B"],
+#        ["B", "B", "W", "W", "K", "W", "W", "B", "B"],
+#        ["B", "O", "O", "O", "W", "O", "O", "O", "B"],
+#        ["O", "O", "O", "O", "W", "O", "O", "O", "O"],
+#        ["O", "O", "O", "O", "B", "O", "O", "O", "O"],
+#        ["O", "O", "O", "B", "B", "B", "O", "O", "O"]
+#    ],
+#    "turn": "W"
+#}
  
 def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
     """
