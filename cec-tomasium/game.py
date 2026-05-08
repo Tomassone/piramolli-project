@@ -106,7 +106,7 @@ class Game:
             # capture, mirroring the Java's drawConditions list.
             'draw_history': [],
             'repetition_count': 0,
-            'repetition_loser': None,
+            # 'repetition_loser': None,
         }
 
     def getBoardSize(self):
@@ -169,6 +169,25 @@ class Game:
             if b['king_position'] is not None:
                 b['king_position'] = transform_pos(
                     *b['king_position'], k_rot, do_flip)
+
+            # Transform every historical snapshot too, so encode_state
+            # sees a consistent orientation across all 8 history planes.
+            new_history = deque(maxlen=self._HISTORY_LEN)
+            for snap in new_state['history']:
+                new_snap = copy.deepcopy(snap)
+                new_snap['white_positions'] = [
+                    transform_pos(r, c, k_rot, do_flip)
+                    for r, c in new_snap['white_positions']
+                ]
+                new_snap['black_positions'] = [
+                    transform_pos(r, c, k_rot, do_flip)
+                    for r, c in new_snap['black_positions']
+                ]
+                if new_snap['king_position'] is not None:
+                    new_snap['king_position'] = transform_pos(
+                        *new_snap['king_position'], k_rot, do_flip)
+                new_history.append(new_snap)
+            new_state['history'] = new_history
             return new_state
 
         def transform_pi(pi_vec, k_rot, do_flip):
@@ -202,21 +221,22 @@ class Game:
 
     def encode_state(self, state) -> np.ndarray:
         """
-        Encodes the full game state into a (9, 9, 35) float32 tensor.
+        Encodes the full game state into a (9, 9, 28) float32 tensor.
 
-        Planes 0-31: 8 history steps × 4 planes [friendly, enemy, king, rep≥1]
-        Plane 32: player colour (1.0 = white to move)
-        Plane 33: move count normalised
-        Plane 34: half-move clock normalised
+        Planes 0-23: 8 history steps × 3 planes [friendly, enemy, king]
+        Plane 24: repetition flag (1.0 if current position has been seen before)
+        Plane 25: player colour (1.0 = white to move)
+        Plane 26: move count normalised
+        Plane 27: half-move clock normalised
         """
         tensor = np.zeros(
-            (self._BOARD_SIZE, self._BOARD_SIZE, 35), dtype=np.float32)
+            (self._BOARD_SIZE, self._BOARD_SIZE, 28), dtype=np.float32)
         board = state['board']
         history = state['history']
         turn = board['turn_to_move']
 
         for step_idx, snap in enumerate(reversed(history)):
-            base = step_idx * 4
+            base = step_idx * 3
             wp = set(snap['white_positions'])
             bp = set(snap['black_positions'])
             kp = snap['king_position']
@@ -229,14 +249,12 @@ class Game:
             if kp is not None:
                 tensor[kp[0], kp[1], base + 2] = 1.0
 
-            if step_idx == 0:
-                rep = state.get('repetition_count', 0)
-                if rep >= 1:
-                    tensor[:, :, base + 3] = 1.0
+        if state.get('repetition_count', 0) >= 1:
+            tensor[:, :, 24] = 1.0
 
-        tensor[:, :, 32] = float(turn)
-        tensor[:, :, 33] = min(state['move_count'] / 200.0, 1.0)
-        tensor[:, :, 34] = min(state['half_move_clock'] / 40.0, 1.0)
+        tensor[:, :, 25] = float(turn)
+        tensor[:, :, 26] = min(state['move_count'] / 200.0, 1.0)
+        tensor[:, :, 27] = min(state['half_move_clock'] / 40.0, 1.0)
         return tensor
 
     # ── Move generation ───────────────────────────────────────────────────────
