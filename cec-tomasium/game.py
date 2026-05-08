@@ -258,24 +258,13 @@ class Game:
         return tensor
 
     # ── Move generation ───────────────────────────────────────────────────────
-
+    
     def _get_raw_moves(self, state):
-        """
-        Generates all legal moves as [[r0,c0],[r1,c1]] pairs.
-
-        Key rules matched to the Java validator:
-          - No piece (except the king) may enter or pass through the throne.
-          - White pieces may never enter or pass through a camp.
-          - Black pieces may enter camps only if they start inside one, AND
-            the destination is within _MAX_CAMP_SLIDE squares (prevents
-            sliding from one camp cluster to the opposite one).
-          - No piece may jump over another piece or the throne.
-        """
-        board = state['board'] if 'board' in state else state
+        board = state['board']
         moves = []
 
-        wp = set(map(tuple, board['white_positions']))
-        bp = set(map(tuple, board['black_positions']))
+        wp = set(board['white_positions'])
+        bp = set(board['black_positions'])
         kp = board.get('king_position')
         turn = board['turn_to_move']
 
@@ -307,16 +296,19 @@ class Game:
                         break
 
                     if (r, c) in self._CAMPS:
-                        if is_black:
-                            # Black can only re-enter its own camp cluster,
-                            # and cannot slide more than 5 squares to do so.
-                            if not start_in_camp:
-                                break
+                        if is_black and start_in_camp:
+                            # Black starting inside a camp may pass through and
+                            # land on other camp cells, but only within 5 squares
+                            # (Java rejects |row_from - row_to| > 5 and same for col).
+                            # We still add the move if within range, then keep sliding —
+                            # the piece can pass through intermediate camp cells freely.
                             dist = abs(r - r0) + abs(c - c0)
                             if dist > self._MAX_CAMP_SLIDE:
                                 break
+                            # valid camp-to-camp landing — fall through to append
                         else:
-                            # White (and the king) can never enter a camp.
+                            # White, king, or black not starting in a camp:
+                            # cannot enter or pass through a camp cell at all.
                             break
 
                     moves.append([[r0, c0], [r, c]])
