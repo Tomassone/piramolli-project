@@ -85,7 +85,6 @@ def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
         "turn": ruolo_giocatore
     }
 
-    # 2. Lo converti in una stringa JSON
     mossa = json.dumps(dizionario_mossa)
     return mossa
 
@@ -98,6 +97,8 @@ def recvall(sock, n):
             return None
         data += packet
     return data
+
+
 def ricevi_scacchiera(sock):
 
     len_bytes = struct.unpack('>i', recvall(sock, 4))[0]
@@ -136,12 +137,11 @@ def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo, timeout):
         scacchiera_ricevuta_json = ricevi_scacchiera()
         print("[*] L'Arbitro ha mandato la scacchiera! È il mio turno.")
         
-        # -> NOTA CHIAVE: Qui passiamo il 'timeout' dinamico calcolato da argparse!
         mossa_decisa = pensa_e_muovi(scacchiera_ricevuta_json, motore, timeout)
         
         print(f"[*] Invio mossa all'Arbitro: {mossa_decisa}")
-        # s.send(mossa_decisa.encode())
-        
+
+        invia_scacchiera(s, mossa_decisa, ruolo)        
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Tablut AI Player - AlphaZero-like bot for the Tablut Challenge"
