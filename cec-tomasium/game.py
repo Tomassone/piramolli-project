@@ -202,21 +202,21 @@ class Game:
 
     def encode_state(self, state) -> np.ndarray:
         """
-        Encodes the full game state into a (9, 9, 43) float32 tensor.
+        Encodes the full game state into a (9, 9, 35) float32 tensor.
 
-        Planes 0-39: 8 history steps × 5 planes [friendly, enemy, king, rep≥1, rep≥2]
-        Plane 40: player colour (1.0 = white to move)
-        Plane 41: move count normalised
-        Plane 42: half-move clock normalised
+        Planes 0-31: 8 history steps × 4 planes [friendly, enemy, king, rep≥1]
+        Plane 32: player colour (1.0 = white to move)
+        Plane 33: move count normalised
+        Plane 34: half-move clock normalised
         """
         tensor = np.zeros(
-            (self._BOARD_SIZE, self._BOARD_SIZE, 43), dtype=np.float32)
+            (self._BOARD_SIZE, self._BOARD_SIZE, 35), dtype=np.float32)
         board = state['board']
         history = state['history']
         turn = board['turn_to_move']
 
         for step_idx, snap in enumerate(reversed(history)):
-            base = step_idx * 5
+            base = step_idx * 4
             wp = set(snap['white_positions'])
             bp = set(snap['black_positions'])
             kp = snap['king_position']
@@ -233,12 +233,10 @@ class Game:
                 rep = state.get('repetition_count', 0)
                 if rep >= 1:
                     tensor[:, :, base + 3] = 1.0
-                if rep >= 2:
-                    tensor[:, :, base + 4] = 1.0
 
-        tensor[:, :, 40] = float(turn)
-        tensor[:, :, 41] = min(state['move_count'] / 200.0, 1.0)
-        tensor[:, :, 42] = min(state['half_move_clock'] / 40.0, 1.0)
+        tensor[:, :, 32] = float(turn)
+        tensor[:, :, 33] = min(state['move_count'] / 200.0, 1.0)
+        tensor[:, :, 34] = min(state['half_move_clock'] / 40.0, 1.0)
         return tensor
 
     # ── Move generation ───────────────────────────────────────────────────────
