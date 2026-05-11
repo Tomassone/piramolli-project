@@ -142,9 +142,21 @@ class NNetWrapper(NeuralNet):
         self.model.eval()
         with torch.no_grad():
             # Leggiamo chi deve muovere direttamente dal tensore
-            turn_is_white = (board[0, 0, 25] == 1.0)
-            
-            board_tensor = torch.FloatTensor(board).to(self.device)
+            if isinstance(board, dict) and 'turn_to_move' in board:
+                turn_is_white = (board['turn_to_move'] == 1)
+            else:
+                # Fallback di sicurezza: se non troviamo l'info, proviamo a guardare il piano 25
+                # se per caso board è già stato codificato in un array Numpy
+                turn_is_white = True
+                if isinstance(board, np.ndarray) and len(board.shape) == 3:
+                    turn_is_white = (board[0, 0, 25] == 1.0)
+
+            if isinstance(board, dict):
+                tensor_board = self.game.encode_state(board)
+            else:
+                tensor_board = board
+
+            board_tensor = torch.FloatTensor(tensor_board).to(self.device)
             board_tensor = board_tensor.permute(2, 0, 1).unsqueeze(0)
             
             pw_logits, vw_val, pb_logits, vb_val = self.model(board_tensor)
