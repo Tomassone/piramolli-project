@@ -7,6 +7,7 @@ import sys
 import argparse
 from TablutGame import TablutGame 
 import copy
+import numpy as np
 
 # ==============================================================================
 # QUI IMPORTI I CODICI DEI TUOI COLLEGHI (QUANDO SARANNO PRONTI)
@@ -80,6 +81,49 @@ def json_to_board_dict(scacchiera_json):
         'king_position': king_pos,
         'turn_to_move': turn_to_move
     }
+
+
+
+def onnx_predict(motore_onnx, board_numpy):
+    """
+    Sostituisce il vecchio nnet.predict() di PyTorch.
+    
+    board_numpy: array di forma (9, 9, 28) restituito da encode_state
+    Restituisce: (pi, v) dove pi è un array 1D di probabilità, v è un float
+    """
+    
+    # 1. Capiamo di chi è il turno leggendo il canale 25 del tensore (prima di modificarlo)
+    # Nel vostro encode_state, il canale 25 è a 1.0 se tocca al Bianco, 0 se tocca al Nero.
+    is_white_turn = (board_numpy[0, 0, 25] == 1.0)
+    
+    # 2. Prepariamo il tensore per ONNX (aggiungiamo la batch dimension e spostiamo i canali)
+    # Da (9, 9, 28) a (1, 28, 9, 9)
+    # equivalente numpy di: board.permute(2, 0, 1).unsqueeze(0)
+    board_input = np.expand_dims(np.transpose(board_numpy, (2, 0, 1)), axis=0)
+    
+    # 3. Interroghiamo ONNX. 
+    # run() restituisce una lista con i 4 output definiti nel nostro export_onnx
+    outputs = motore_onnx.run(None, {'input_board': board_input})
+    
+    # outputs[0] -> pw_logits (forma: [1, 6561])
+    # outputs[1] -> vw_val    (forma: [1, 1])
+    # outputs[2] -> pb_logits (forma: [1, 6561])
+    # outputs[3] -> vb_val    (forma: [1, 1])
+    
+    # 4. Scegliamo la testa giusta in base al turno
+    if is_white_turn:
+        logits = outputs[0][0]  # Prendiamo l'elemento 0 del batch
+        v = outputs[1][0][0]    # Estraiamo il float nudo e crudo
+    else:
+        logits = outputs[2][0]
+        v = outputs[3][0][0]
+        
+    # 5. Applichiamo il Softmax (perché ONNX ci dà i logit grezzi)
+    # Trucco matematico standard (sottrazione del max) per evitare overflow di numpy
+    exp_logits = np.exp(logits - np.max(logits))
+    pi = exp_logits / np.sum(exp_logits)
+    
+    return pi, v
 
 
 def pensa_e_muovi(scacchiera_json, motore_onnx,tempo_inizio, tempo_sicuro_disponibile):
