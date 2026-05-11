@@ -1,0 +1,66 @@
+Per capire esattamente dove la tua IA passa il tempo (e quindi se i 4 core stanno lavorando al massimo o se il GIL di Python ti sta frenando), ti basta usare il trucco del "Cronometro Differenziale".
+
+Ci metti letteralmente 2 minuti. Ecco come fare.
+
+### 1. Modifica la funzione che fa l'inferenza ONNX
+Ovunque tu chiami `motore.run(...)` (presumibilmente dentro il tuo MCTS o nel Wrapper ONNX), aggiungi un contatore globale o di classe per misurare **solo** il tempo speso dentro la rete neurale.
+
+```python
+import time
+
+# Aggiungi questa variabile globale in cima al file dove c'è la predict
+tempo_totale_onnx = 0.0
+
+def tua_funzione_predict_onnx(board_tensor, motore):
+    global tempo_totale_onnx
+    
+    t_start = time.time()
+    
+    # La riga pesante vera e propria
+    outputs = motore.run(None, {'input_board': board_tensor})
+    
+    t_end = time.time()
+    tempo_totale_onnx += (t_end - t_start)
+    
+    return outputs
+```
+
+### 2. Modifica il ciclo in `pensa_e_muovi`
+Nel tuo `while` di sicurezza, conta il tempo totale del ciclo e poi fai la sottrazione alla fine del turno.
+
+```python
+def pensa_e_muovi(state_root, mcts, tempo_sicuro_disponibile, tempo_inizio, game):
+    global tempo_totale_onnx
+    tempo_totale_onnx = 0.0  # Resetta il contatore a inizio turno
+    
+    iterazioni = 0
+    tempo_start_ricerca = time.time()
+    
+    while (time.time() - tempo_inizio) < tempo_sicuro_disponibile:
+        mcts.search(state_root)
+        iterazioni += 1
+        
+    tempo_end_ricerca = time.time()
+    
+    # ─── LA DIAGNOSTICA ───
+    tempo_totale = tempo_end_ricerca - tempo_start_ricerca
+    tempo_python = tempo_totale - tempo_totale_onnx
+    
+    perc_onnx = (tempo_totale_onnx / tempo_totale) * 100
+    perc_python = (tempo_python / tempo_totale) * 100
+    
+    print(f"[*] FINE TURNO | Iterazioni: {iterazioni}")
+    print(f"    -> Tempo Totale: {tempo_totale:.2f}s")
+    print(f"    -> ONNX (Rete Neurale): {tempo_totale_onnx:.2f}s ({perc_onnx:.1f}%)")
+    print(f"    -> Python (MCTS/Logica): {tempo_python:.2f}s ({perc_python:.1f}%)")
+```
+
+### Come leggere i risultati:
+
+*   **Caso A: ONNX prende > 75-80% del tempo.**
+    **Ottima notizia.** Significa che il tuo codice Python è super efficiente e il GIL non ti sta dando noia. Il grosso del lavoro lo sta facendo la matematica delle matrici, e l'impostazione `intra_op_num_threads=4` che hai messo sta già spremendo i core della macchina virtuale a dovere. Non toccare nulla, sei al top delle performance per la tua architettura.
+*   **Caso B: Python prende > 40-50% del tempo.**
+    **Campanello d'allarme.** Significa che la copia delle scacchiere, la gestione degli hash, i cicli `for` della selezione MCTS o la clonazione degli stati si stanno mangiando mezza CPU. In questo caso, il GIL di Python ti sta limitando severamente. Aggiungere il multithreading Python qui **peggiorerebbe** persino le cose (per l'overhead dei lock). 
+    L'unica soluzione veloce, se sei in questo caso, è cercare di ottimizzare cose basilari nel codice di gioco (es. evitare di usare `copy.deepcopy()` dentro la search dell'MCTS, usare tuple al posto di liste, o ottimizzare il calcolo delle mosse legali).
+
+Fai girare una simulazione di 5 o 10 secondi e leggi le percentuali: avrai la risposta matematica su quanto la tua IA stia usando bene l'hardware.

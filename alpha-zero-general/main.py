@@ -3,8 +3,8 @@ import logging
 import coloredlogs
 
 from Coach import Coach
-from othello.OthelloGame import OthelloGame as Game
-from othello.pytorch.NNet import NNetWrapper as nn
+from tablut.TablutGame import TablutGame as Game
+from tablut.NNet import NNetWrapper as nn
 from utils import *
 
 log = logging.getLogger(__name__)
@@ -27,11 +27,24 @@ args = dotdict({
     'numItersForTrainExamplesHistory': 20,
 
 })
-
+"""fratello gem suggerisce:
+args = dotdict({
+    'numIters': 100,            # Iterazioni totali di self-play
+    'numEps': 20,               # Partite per iterazione (Tablut è lenta)
+    'tempThreshold': 10,        # Dopo 10 mosse gioca deterministicamente
+    'updateThreshold': 0.55,    # Accetta nuova rete se vince 55%+ nell'Arena
+    'maxlenOfQueue': 100000,    # Esempi massimi in memoria
+    'numMCTSSims': 50,          # Simulazioni MCTS per mossa durante self-play
+    'arenaCompare': 20,         # Partite di confronto vecchia vs nuova rete
+    'cpuct': 1.0,
+    'checkpoint': './temp/',
+    'load_model': False,
+    'load_folder_file': ('./temp/', 'best.pth.tar'),
+    'numItersForTrainExamplesHistory': 10,"""
 
 def main():
     log.info('Loading %s...', Game.__name__)
-    g = Game(6)
+    g = Game()
 
     log.info('Loading %s...', nn.__name__)
     nnet = nn(g)
