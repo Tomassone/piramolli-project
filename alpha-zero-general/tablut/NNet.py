@@ -56,23 +56,23 @@ class TablutNet(nn.Module):
             
         # Policy White
         pw = torch.relu(self.policy_w_bn(self.policy_w_conv(x)))
-        pw = pw.view(pw.size(0), -1)
+        pw = pw.reshape(pw.size(0), -1)
         pw_logits = self.policy_w_fc(pw)
         
         # Policy Black
         pb = torch.relu(self.policy_b_bn(self.policy_b_conv(x)))
-        pb = pb.view(pb.size(0), -1)
+        pb = pb.reshape(pb.size(0), -1)
         pb_logits = self.policy_b_fc(pb)
         
         # Value White
         vw = torch.relu(self.value_w_bn(self.value_w_conv(x)))
-        vw = vw.view(vw.size(0), -1)
+        vw = vw.reshape(vw.size(0), -1)
         vw = torch.relu(self.value_w_fc1(vw))
         vw_val = torch.tanh(self.value_w_fc2(vw))
         
         # Value Black
         vb = torch.relu(self.value_b_bn(self.value_b_conv(x)))
-        vb = vb.view(vb.size(0), -1)
+        vb = vb.reshape(vb.size(0), -1)
         vb = torch.relu(self.value_b_fc1(vb))
         vb_val = torch.tanh(self.value_b_fc2(vb))
         

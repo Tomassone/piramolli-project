@@ -5,7 +5,7 @@ import struct
 import onnxruntime as ort
 import sys
 import argparse
-from TablutGame import TablutGame 
+from tablut.TablutGame import TablutGame 
 import copy
 import numpy as np
 import OnnxNetWrapper as onnet
@@ -69,7 +69,7 @@ def json_to_board_dict(scacchiera_json):
 
 
 
-def pensa_e_muovi(game, scacchiera_json, motore_onnx,tempo_inizio, tempo_sicuro_disponibile):
+def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_disponibile):
     
     # -------------------------------------------------------------
     # IL MEMBRO 2 INIZIALIZZA L'ALBERO MCTS
@@ -77,16 +77,9 @@ def pensa_e_muovi(game, scacchiera_json, motore_onnx,tempo_inizio, tempo_sicuro_
     # mcts = MCTS(motore=motore_onnx)
     # -------------------------------------------------------------
 
-    mcts = MCTS(game, motore_onnx, dotdict({'cpuct': 1}))
-
-    # Loop temporizzato — chiami search direttamente
-    while (time.time() - tempo_inizio) < tempo_sicuro_disponibile:
-        mcts.search(stato_attuale)
-
+    mcts = MCTS.MCTS(game, motore_onnx, dotdict({'numMCTSSims': 999999, 'cpuct': 1.0}))
     # Poi estrai la mossa migliore manualmente
-    s = game.stringRepresentation(stato_attuale)
-    counts = [mcts.Nsa.get((s, a), 0) for a in range(game.getActionSize())]
-    best_action = np.argmax(counts)
+   
         
     iterazioni = 0
     
@@ -95,7 +88,7 @@ def pensa_e_muovi(game, scacchiera_json, motore_onnx,tempo_inizio, tempo_sicuro_
         # ---------------------------------------------------------
         # QUI L'MCTS ESPLORA I RAMI (Questa è la riga pesante)
         # Esempio:
-        # mcts.esplora_un_ramo(stato_attuale)
+        mcts.search(scacchiera)
         # ---------------------------------------------------------
         
         iterazioni += 1
@@ -109,10 +102,32 @@ def pensa_e_muovi(game, scacchiera_json, motore_onnx,tempo_inizio, tempo_sicuro_
     # -------------------------------------------------------------
     # CHIEDI AL MCTS QUAL È LA MOSSA MIGLIORE E PREPARA LA STRINGA
     # Esempio:
-    # mossa_migliore = mcts.dammi_mossa_migliore()
+    s = game.stringRepresentation(scacchiera)
+    counts = [mcts.Nsa.get((s, a), 0) for a in range(game.getActionSize())]
+    best_action = int(np.argmax(counts))
     # -------------------------------------------------------------
     
-    # Ritorna la mossa in formato stringa per mandarla all'arbitro
+    # --- DECODIFICA DELL'AZIONE IN COORDINATE (riga, colonna) ---
+    # Come definito in TablutGame.py: (r0 * 9 + c0) * 81 + (r1 * 9 + c1)
+    from_idx, to_idx = divmod(best_action, 9 ** 2)
+    r0, c0 = divmod(from_idx, 9)
+    r1, c1 = divmod(to_idx, 9)
+    
+    # --- TRADUZIONE IN FORMATO JAVA PER IL SERVER ---
+    # Il server Java usa coordinate tipo scacchi: 'a'-'i' per le colonne, '1'-'9' per le righe.
+    # colonna = lettera (a = 0, b = 1, ... i = 8)
+    # riga = numero stringa ('1' = 0, '2' = 1, ... '9' = 8) - NOTA: nel tuo codice la 
+    # matrice JSON [0][0] corrisponde in alto a sinistra (a9), bisogna fare attenzione all'orientamento.
+    # Assumendo l'orientamento classico: a=0, 1=0.
+    
+    lettere = "abcdefghi"
+    casella_partenza = f"{lettere[c0]}{r0 + 1}"
+    casella_arrivo   = f"{lettere[c1]}{r1 + 1}"
+    
+    # Capiamo se stiamo giocando col Bianco o col Nero per metterlo nel JSON
+    ruolo_giocatore = "W" if scacchiera['board']['turn_to_move'] == 1 else "B"
+
+    # Formazione mossa per server
     dizionario_mossa = {
         "from": casella_partenza,
         "to": casella_arrivo,
