@@ -1,3 +1,3 @@
 # piramolli-project
 
-~*swag*~
+*swag*
