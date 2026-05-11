@@ -82,29 +82,20 @@ def json_to_board_dict(scacchiera_json):
     }
 
 
-def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
+def pensa_e_muovi(scacchiera_json, motore_onnx,tempo_inizio, tempo_sicuro_disponibile):
     """
     mantenere lo satto esternamente 
 
-    """
-    print(f"[*] Turno iniziato! Orologio partito per {tempo_sicuro_disponibile:.1f} secondi.")
-    tempo_inizio = time.time()
+    """    
     
     # -------------------------------------------------------------
-    # 1. QUI IL MEMBRO 1 INIZIALIZZA LA SCACCHIERA DAL JSON
-    # Esempio:
-    # stato_attuale = TablutBoard.from_json(scacchiera_json)
-    # -------------------------------------------------------------
-    
-    # -------------------------------------------------------------
-    # 2. QUI IL MEMBRO 2 INIZIALIZZA L'ALBERO MCTS
+    # IL MEMBRO 2 INIZIALIZZA L'ALBERO MCTS
     # Esempio:
     # mcts = MCTS(motore=motore_onnx)
     # -------------------------------------------------------------
     
     iterazioni = 0
     
-    # 3. IL CICLO DELLA SICUREZZA
     while (time.time() - tempo_inizio) < tempo_sicuro_disponibile:
         
         # ---------------------------------------------------------
@@ -122,7 +113,7 @@ def pensa_e_muovi(scacchiera_json, motore_onnx, tempo_sicuro_disponibile):
     print(f"[*] Fine pensiero. Valutati {iterazioni} percorsi.")
 
     # -------------------------------------------------------------
-    # 4. CHIEDI AL MCTS QUAL È LA MOSSA MIGLIORE E PREPARA LA STRINGA
+    # CHIEDI AL MCTS QUAL È LA MOSSA MIGLIORE E PREPARA LA STRINGA
     # Esempio:
     # mossa_migliore = mcts.dammi_mossa_migliore()
     # -------------------------------------------------------------
@@ -227,6 +218,7 @@ def gioca_partita(s, ruolo, timeout):
 
         if (ruolo == "WHITE" and turn_del_server == "W") or \
            (ruolo == "BLACK" and turn_del_server == "B"):
+            tempo_inizio = time.time()
             
             print(f"[*] È il mio turno ({ruolo}).")
             #  TablutGame si aspetta questo formato di stato
@@ -239,7 +231,7 @@ def gioca_partita(s, ruolo, timeout):
                 'repetition_count': draw_history.count(hash_corrente) - 1 
             }
             
-            mossa_decisa = pensa_e_muovi(state_root, motore, timeout)
+            mossa_decisa = pensa_e_muovi(state_root, motore,tempo_inizio, timeout)
             
             print(f"[*] Invio mossa all'Arbitro: {mossa_decisa}")
             invia_scacchiera(s, mossa_decisa) 
