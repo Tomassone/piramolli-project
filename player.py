@@ -67,8 +67,8 @@ def json_to_board_dict(scacchiera_json):
     black_pos = []
     king_pos = None
     
-    for r in range(9):
-        for c in range(9):
+    for c in range(9):
+        for r in range(9):
             val = matrix[r][c]
             if val in ('W', 'WHITE'):
                 white_pos.append((r, c))
