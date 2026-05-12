@@ -1,3 +1,4 @@
+from collections import deque
 import time
 import json
 import socket
@@ -194,7 +195,12 @@ def gioca_partita(s, ruolo, timeout):
 
     scacchiera_iniziale = game.getInitBoard()['board']
     
-    history_8 =  [copy.deepcopy(scacchiera_iniziale) for _ in range(8)]     # Le ultime 8 scacchiere
+    history_8 = deque(
+        [copy.deepcopy(scacchiera_iniziale) for _ in range(8)],
+        maxlen=8
+    )
+    
+    #history_8 =  [copy.deepcopy(scacchiera_iniziale) for _ in range(8)]     # Le ultime 8 scacchiere
     draw_history = []    # Per i pareggi
     pezzi_totali = 25    # Per capire se qualcuno è morto (Tablut: 16 neri + 9 bianchi)
     move_count=0
@@ -216,7 +222,7 @@ def gioca_partita(s, ruolo, timeout):
             break
         
         board_dict=json_to_board_dict(scacchiera_ricevuta)
-        history_8.pop(0)
+        #history_8.pop(0)
         history_8.append(board_dict)
         pezzi_attuali = len(board_dict['white_positions']) + len(board_dict['black_positions'])
         if pezzi_attuali < pezzi_totali:
@@ -234,7 +240,7 @@ def gioca_partita(s, ruolo, timeout):
             #  TablutGame si aspetta questo formato di stato
             state_root = {
                 'board': board_dict,
-                'history': list(history_8),
+                'history': history_8,
                 'move_count': move_count, 
                 'half_move_clock':  len(draw_history) - 1, #mosse dall'ultima cattura, funziona considerato che la resetto ogni volta che ne vedo una
                 'draw_history': list(draw_history),

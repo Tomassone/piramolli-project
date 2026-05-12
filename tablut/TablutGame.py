@@ -236,7 +236,7 @@ class TablutGame(Game):
         history = state['history']
         turn = board['turn_to_move']
 
-        for step_idx, snap in enumerate(reversed(history)):
+        for step_idx, snap in enumerate(list(reversed(history))[:self._HISTORY_LEN]):
             base = step_idx * 3
             wp = set(snap['white_positions'])
             bp = set(snap['black_positions'])
