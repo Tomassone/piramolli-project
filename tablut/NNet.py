@@ -145,8 +145,7 @@ class NNetWrapper(NeuralNet):
                 loss_vw = (vs - vw_val) ** 2
                 loss_vb = (vs - vb_val) ** 2
                 
-                # IL TRUCCO: Moltiplichiamo le loss per le maschere.
-                # Se era il turno del Bianco (mask_white=1), la loss nera si azzera e viceversa!
+                # Moltiplichiamo le loss per le maschere
                 loss_white = (loss_pw + loss_vw) * mask_white
                 loss_black = (loss_pb + loss_vb) * mask_black
                 
@@ -313,13 +312,13 @@ class NNetWrapper(NeuralNet):
 
         filepath = os.path.join(folder, filename)
         
-        # Metti il modello in modalità valutazione
+        # modello in modalità valutazione
         self.model.eval()
         
-        # Creiamo un tensore dummy della forma esatta che si aspetta la rete
+        # crea un tensore dummy della forma esatta che si aspetta la rete
         dummy_input = torch.randn(1, 28, 9, 9).to(self.device)
         
-        # Esporta usando il tracer classico (disabilitando Dynamo)
+        # esporta usando il tracer classico
         import torch.onnx
         
         torch.onnx.export(
@@ -338,7 +337,7 @@ class NNetWrapper(NeuralNet):
                 'pb_logits': {0: 'batch_size'},
                 'vb_val': {0: 'batch_size'}
             },
-            dynamo=False  # <--- QUESTO SALVA LA VITA, DISABILITA IL MOTORE NUOVO
+            dynamo=False  
         )
 
 

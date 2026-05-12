@@ -13,13 +13,6 @@ from OnnxNetWrapper import ONNXNetWrapper  as onnet
 import MCTS
 from utils import dotdict
 
-# ==============================================================================
-# QUI IMPORTI I CODICI DEI TUOI COLLEGHI (QUANDO SARANNO PRONTI)
-# Esempio:
-# from tablut_ambiente import TablutBoard  # Dal Membro 1
-# from mcts_player import MCTS             # Dal Membro 2
-# ==============================================================================
-
 # scacchiera json
 #{
 #    "board": [
@@ -51,7 +44,7 @@ def stampa_scacchiera(board_dict):
     print("  a b c d e f g h i")
     for r in range(9):
         row_str = ''.join(grid[r])
-        java_row = 9 - r  # riga Java: [0] = riga 9, [8] = riga 1
+        java_row = 9 - r 
         print(f"{java_row} {' '.join(grid[r])}")
     print()
 
@@ -77,7 +70,6 @@ def json_to_board_dict(scacchiera_json):
             elif val in ('K', 'KING'):
                 king_pos = (r, c)
                 
-    # Nel TablutGame del tuo collega: 1 = BIANCO, 0 = NERO
     turn_to_move = 1 if turn_str in ("W", "WHITE" )else 0
     
     return {
@@ -91,37 +83,21 @@ def json_to_board_dict(scacchiera_json):
 
 def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_disponibile):
     
-    # -------------------------------------------------------------
-    # IL MEMBRO 2 INIZIALIZZA L'ALBERO MCTS
-    # Esempio:
-    # mcts = MCTS(motore=motore_onnx)
-    # -------------------------------------------------------------
-
+    # Chiamata a MCTS
     mcts = MCTS.MCTS(game, motore_onnx, dotdict({'numMCTSSims': 999999, 'cpuct': 1.0}))
-    # Poi estrai la mossa migliore manualmente
    
-        
     iterazioni = 0
     
     while (time.time() - tempo_inizio) < tempo_sicuro_disponibile:
         
-        # ---------------------------------------------------------
-        # QUI L'MCTS ESPLORA I RAMI (Questa è la riga pesante)
-        # Esempio:
+        # cerca mossa migliore
         mcts.search(scacchiera)
-        # ---------------------------------------------------------
         
         iterazioni += 1
-        
-        # -- RIGA FINTO-MCTS (DA CANCELLARE QUANDO HAI IL CODICE VERO) --
-        time.sleep(0.001)  # Finge di pensare per 1 millisecondo
-        # ---------------------------------------------------------------
      
-    print(f"[*] Fine pensiero. Valutati {iterazioni} percorsi.")
+    # print(f"[*] Fine pensiero. Valutati {iterazioni} percorsi.")
 
-    # -------------------------------------------------------------
-    # CHIEDI AL MCTS QUAL È LA MOSSA MIGLIORE E PREPARA LA STRINGA
-    # Esempio:
+    # sceglie la mossa migliore
     s = game.stringRepresentation(scacchiera)
     counts = [mcts.Nsa.get((s, a), 0) for a in range(game.getActionSize())]
     best_action = int(np.argmax(counts))
@@ -134,21 +110,16 @@ def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_dispo
     r1, c1 = divmod(to_idx, 9)
     
     # --- TRADUZIONE IN FORMATO JAVA PER IL SERVER ---
-    # Il server Java usa coordinate tipo scacchi: 'a'-'i' per le colonne, '1'-'9' per le righe.
-    # colonna = lettera (a = 0, b = 1, ... i = 8)
-    # riga = numero stringa ('1' = 0, '2' = 1, ... '9' = 8) - NOTA: nel tuo codice la 
-    # matrice JSON [0][0] corrisponde in alto a sinistra (a9), bisogna fare attenzione all'orientamento.
-    # Assumendo l'orientamento classico: a=0, 1=0.
     
     lettere = "abcdefghi"
 
     casella_partenza = f"{lettere[c0]}{r0 + 1}"
     casella_arrivo   = f"{lettere[c1]}{r1 + 1}"
 
-    # Capiamo se stiamo giocando col Bianco o col Nero per metterlo nel JSON
+    # stabilire di chi è il turno
     ruolo_giocatore = "W" if scacchiera['board']['turn_to_move'] == 1 else "B"
 
-    # Formazione mossa per server
+    # mossa per server
     dizionario_mossa = {
         "from": casella_partenza,
         "to": casella_arrivo,
@@ -160,7 +131,7 @@ def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_dispo
     return mossa
 
 def recvall(sock, n):
-    # Helper function to recv n bytes or return None if EOF is hit
+    # recv n bytes or return None if EOF is hit
     data = b''
     while len(data) < n:
         packet = sock.recv(n - len(data))
@@ -197,7 +168,7 @@ def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo):
     # Questo print usa i parametri che abbiamo estratto tramite argparse
     print(f"[*] In attesa di connettersi all'Arbitro su {ip_arbitro}:{porta_arbitro} come {ruolo}...")
     
-    # --- LOGICA DI CONNESSIONE SOCKET VERA  ---
+    # --- LOGICA DI CONNESSIONE SOCKET  ---
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip_arbitro, porta_arbitro))
     player_name= "Piramollo"
@@ -221,12 +192,13 @@ def gioca_partita(s, ruolo, timeout):
         maxlen=8
     )
     
-    #history_8 =  [copy.deepcopy(scacchiera_iniziale) for _ in range(8)]     # Le ultime 8 scacchiere
+    #history_8 =  [copy.deepcopy(scacchiera_iniziale) for _ in range(8)]
+    # Le ultime 8 scacchiere
     draw_history = []    # Per i pareggi
     pezzi_totali = 25    # Per capire se qualcuno è morto (Tablut: 16 neri + 9 bianchi)
     move_count=0
     while True:
-        # L'arbitro ci manda il JSON della scacchiera
+        # riceve il JSON della scacchiera
 
         scacchiera_ricevuta = ricevi_scacchiera(s)
         turn_del_server = scacchiera_ricevuta.get('turn')
@@ -274,8 +246,7 @@ def gioca_partita(s, ruolo, timeout):
             invia_scacchiera(s, mossa_decisa) 
             
         else:
-            # È il turno dell'avversario. Non devi fare nulla, solo aspettare che lui muova 
-            # e che il server ti mandi la prossima scacchiera aggiornata.
+            # È il turno dell'avversario.
             print(f"[*] Turno dell'avversario. In attesa...")
         
         move_count=move_count+1
@@ -294,7 +265,7 @@ if __name__ == "__main__":
     # argomenti posizionali
     parser.add_argument(
         "role",
-        type=str.upper, # Converte in automatico in maiuscolo (es. "white" -> "WHITE")
+        type=str.upper, 
         choices=["WHITE", "BLACK"],
         help="Il ruolo assegnato al giocatore (WHITE o BLACK)"
     )
@@ -329,8 +300,6 @@ if __name__ == "__main__":
     try:
         args = parser.parse_args()
     except SystemExit:
-        # Se i parametri passati da bash sono errati, argparse fa exit in automatico.
-        # Stampiamo un messaggio chiaro per il debug.
         print("\n[!] Errore nei parametri passati a Python. Controlla runmyplayer.sh")
         sys.exit(1)
 
@@ -340,10 +309,9 @@ if __name__ == "__main__":
     porta_server = (5800 if ruolo == "WHITE" else 5801) if args.port < 0 else args.port
     margin= args.time_margin
 
-    # Calcola il tuo margine di sicurezza brutalmente vitale (es. -2.0 secondi)
+    # margine di sicurezza
     timeout_sicuro = timeout_imposto - margin
     if timeout_sicuro <= 0:
-        # Previeni crash se il prof lancia la gara a tempi assurdi (es. 1 secondo)
         timeout_sicuro = timeout_imposto * 0.8 
 
     print(f"[*] Avvio Python: Ruolo={ruolo} | Timeout di sicurezza={timeout_sicuro:.1f}s | Arbitro={ip_server}:{porta_server}")

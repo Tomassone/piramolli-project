@@ -37,9 +37,6 @@ class TablutGame(Game):
     _BOARD_SIZE = 9
     _THRONE = (4, 4)
 
-    # These are the (row, col) equivalents of the Java citadel strings.
-    # Java uses chess notation (e.g. "a4" = col 0, row 3), so we translate:
-    #   column letter a-i → 0-8, row number 1-9 → 0-8 (row = number - 1)
     _CAMPS = {
         # Left (column a = col 0): a4, a5, a6, b5
         (3, 0), (4, 0), (5, 0), (4, 1),
@@ -51,15 +48,12 @@ class TablutGame(Game):
         (8, 3), (8, 4), (8, 5), (7, 4),
     }
 
-    # The four "deep" camp cells that the Java explicitly excludes from acting
-    # as the second jaw of a white-captures-black sandwich. These correspond
-    # to the Java's "strangeCitadels" comments: e1, a5, i5, e9.
-    #   e1 = (0,4), a5 = (4,0), i5 = (4,8), e9 = (8,4)
+    # The four "deep" camp cells that are excluded from acting
+    # as the second jaw of a white-captures-black move.
     _STRANGE_CAMPS = {(0, 4), (4, 0), (4, 8), (8, 4)}
 
     # Edge cells reachable by the king (excludes camp cells on the edge,
-    # which the king can never enter anyway — so this is equivalent to
-    # the Java's "any edge cell" win condition given legal move generation).
+    # which the king can never enter anyway).
     _ESCAPES = {
         (0, 1), (0, 2), (0, 6), (0, 7),
         (1, 0), (2, 0), (6, 0), (7, 0),
@@ -69,15 +63,10 @@ class TablutGame(Game):
     _HISTORY_LEN = 8
 
     # Maximum distance a black piece can travel within its own camp group.
-    # The Java rejects moves where |col_from - col_to| > 5 or |row_from - row_to| > 5
-    # when both endpoints are inside citadels. This prevents crossing from one
-    # camp cluster to the opposite one in a single move.
     _MAX_CAMP_SLIDE = 5
 
     def __init__(self):
         pass
-
-    # ── Base interface ────────────────────────────────────────────────────────
 
     def getInitBoard(self):
         board = {
@@ -103,11 +92,8 @@ class TablutGame(Game):
             'history': history,
             'move_count': 0,
             'half_move_clock': 0,
-            # We now store a list of board string-hashes seen since the last
-            # capture, mirroring the Java's drawConditions list.
             'draw_history': [],
             'repetition_count': 0,
-            # 'repetition_loser': None,
         }
 
     def getBoardSize(self):
@@ -218,8 +204,6 @@ class TablutGame(Game):
         turn = b['turn_to_move']
         return f"W{wp}B{bp}K{kp}T{turn}"
 
-    # ── Tensor encoding ───────────────────────────────────────────────────────
-
     def encode_state(self, state) -> np.ndarray:
         """
         Encodes the full game state into a (9, 9, 28) float32 tensor.
@@ -257,8 +241,6 @@ class TablutGame(Game):
         tensor[:, :, 26] = min(state['move_count'] / 200.0, 1.0)
         tensor[:, :, 27] = min(state['half_move_clock'] / 40.0, 1.0)
         return tensor
-
-    # ── Move generation ───────────────────────────────────────────────────────
     
     def _get_raw_moves(self, state):
         if isinstance(state, dict) and 'board' in state:
@@ -296,17 +278,14 @@ class TablutGame(Game):
                     if (r, c) in occupied:
                         break
 
-                    # The throne blocks everyone except the king.
+                    # the throne blocks everyone except the king
                     if self._is_throne((r, c)) and not is_king:
                         break
 
                     if (r, c) in self._CAMPS:
                         if is_black and start_in_camp:
-                            # Black starting inside a camp may pass through and
+                            # black starting inside a camp may pass through and
                             # land on other camp cells, but only within 5 squares
-                            # (Java rejects |row_from - row_to| > 5 and same for col).
-                            # We still add the move if within range, then keep sliding —
-                            # the piece can pass through intermediate camp cells freely.
                             dist = abs(r - r0) + abs(c - c0)
                             if dist > self._MAX_CAMP_SLIDE:
                                 break
@@ -321,8 +300,6 @@ class TablutGame(Game):
 
         return moves
 
-    # ── State transition ──────────────────────────────────────────────────────
-
     def _apply_move(self, state, action):
         """
         Deep-copies state, moves the piece, applies captures, updates all
@@ -334,7 +311,7 @@ class TablutGame(Game):
         r0, c0 = tuple(action[0])
         r1, c1 = tuple(action[1])
 
-        # Move the piece on the board.
+        # move the piece on the board.
         if (r0, c0) in board['white_positions']:
             board['white_positions'].remove((r0, c0))
             board['white_positions'].append((r1, c1))
@@ -346,11 +323,10 @@ class TablutGame(Game):
 
         captured = self._apply_captures(board, (r1, c1))
 
-        # Counters — mirroring movesWithoutCapturing in the Java.
         new_state['move_count'] += 1
         if captured:
             new_state['half_move_clock'] = 0
-            # Clear draw history on capture, exactly as the Java does.
+            # clear draw history on capture
             new_state['draw_history'] = []
             new_state['repetition_count'] = 0
         else:
@@ -358,15 +334,13 @@ class TablutGame(Game):
 
         board['turn_to_move'] = 1 - board['turn_to_move']
 
-        # --- Repetition detection (mirrors Java's drawConditions list) ---
-        # We hash the new board position and count how many times it has
+        # repetition detection
+        # we hash the new board position and count how many times it has
         # appeared in draw_history since the last capture.
         board_hash = self._board_hash(board)
         occurrences = new_state['draw_history'].count(board_hash)
         new_state['repetition_count'] = occurrences
 
-        # Java uses repeated_moves_allowed = 2 by default before declaring draw,
-        # meaning the position must appear more than 2 times (i.e. 3rd occurrence).
         new_state['draw_history'].append(board_hash)
 
         new_state['history'].append(copy.deepcopy(board))
@@ -395,17 +369,6 @@ class TablutGame(Game):
             return self._captures_by_black(board, moved_to)
 
     def _captures_by_white(self, board, moved_to: tuple) -> bool:
-        """
-        White just moved to `moved_to`. Check if any adjacent black pieces
-        are sandwiched. Mirrors Java's checkCaptureWhite().
-
-        A black piece at `target` is captured if the cell `behind` it
-        (on the far side from the moving piece) is:
-          - a white piece, OR
-          - the throne, OR
-          - the king, OR
-          - a camp cell that is NOT one of the four _STRANGE_CAMPS.
-        """
         r1, c1 = moved_to
         captured_any = False
         bp = board['black_positions']
@@ -435,13 +398,9 @@ class TablutGame(Game):
         return captured_any
 
     def _captures_by_black(self, board, moved_to: tuple) -> bool:
-        """
-        Black just moved to `moved_to`. Mirrors Java's checkCaptureBlack(),
-        which delegates to separate pawn and king capture methods.
-        """
         captured_any = False
 
-        # --- Capture normal white pawns (not the king) ---
+        # Capture normal white pawns
         r1, c1 = moved_to
         wp = board['white_positions']
         kp = board.get('king_position')
@@ -464,10 +423,9 @@ class TablutGame(Game):
 
             # A white pawn is captured if behind it is: another black piece,
             # the throne (empty or not), or a camp cell.
-            # This mirrors checkCaptureBlackPawn{Right,Left,Up,Down}.
             behind_is_anvil = (
                 behind in board['black_positions']
-                or self._is_throne(behind)   # Java checks "T" (throne marker)
+                or self._is_throne(behind)
                 or behind in self._CAMPS
             )
 
@@ -485,19 +443,6 @@ class TablutGame(Game):
     def _king_is_captured(self, board, moved_to: tuple) -> bool:
         """
         Determines whether the king is captured after black moves to `moved_to`.
-
-        This faithfully mirrors the Java's four directional methods
-        (checkCaptureBlackKing{Left,Right,Up,Down}), which apply different
-        rules depending on the king's position relative to the throne:
-
-        - King ON the throne (e5 = 4,4): needs all 4 sides covered by black.
-        - King ADJACENT to the throne (e4, e6, d5, f5): needs 3 sides covered
-          (the throne itself counts as one side automatically).
-        - King ELSEWHERE: standard 2-piece sandwich — the cell behind must be
-          black or a camp cell.
-
-        We check only the direction in which `moved_to` is adjacent to the
-        king, matching how the Java triggers one of the four directional methods.
         """
         kp = board.get('king_position')
         if kp is None:
@@ -515,9 +460,7 @@ class TablutGame(Game):
             """True if this cell counts as a hostile blocker for king capture."""
             return (cell in bp or cell in self._CAMPS or self._is_throne(cell))
 
-        # ── King is ON the throne (4,4) ───────────────────────────────────
-        # Java: all four neighbours must be black (throne has no passive help
-        # here because the king *is* on the throne).
+        # King is ON the throne
         if kp == self._THRONE:
             return all(
                 is_blocking((kr + dr, kc + dc))
@@ -525,11 +468,7 @@ class TablutGame(Game):
                 if self._inside_board(kr + dr, kc + dc)
             )
 
-        # ── King is ADJACENT to the throne ───────────────────────────────
-        # The throne always counts as one blocking side. We need the remaining
-        # three sides (i.e. all sides except the throne direction) to be covered
-        # by black pieces. The Java hardcodes these checks per cell, which we
-        # replicate here generically.
+        # King is ADJACENT to the throne
         throne_adjacent = {(3, 4), (5, 4), (4, 3), (4, 5)}  # e4,e6,d5,f5
         if kp in throne_adjacent:
             # Count how many of the four sides are blocked (throne counts too).
@@ -538,23 +477,15 @@ class TablutGame(Game):
                 if self._inside_board(kr + dr, kc + dc)
                 and is_blocking((kr + dr, kc + dc))
             )
-            # The king is adjacent to the throne, so at least one of those
-            # is_blocking() calls will return True for the throne cell.
-            # Capture requires all exposed sides (all 4 for a non-edge cell,
-            # which all throne-adjacent cells are) to be covered.
             return blocked_sides == 4
 
-        # ── King is ELSEWHERE ────────────────────────────────────────────
-        # Standard sandwich: the cell directly opposite the moving piece
-        # (i.e. `behind` relative to the mover) must be black or a camp.
+        # Standard way: the cell directly opposite the moving piece
         dr = kr - mr   # direction from mover toward king
         dc = kc - mc
         behind = (kr + dr, kc + dc)   # cell on far side of king
 
         if not self._inside_board(*behind):
             # King is against the board edge — cannot be captured this way
-            # (the Java also does not capture in this situation since the
-            # "behind" index would be out of bounds).
             return False
 
         return is_blocking(behind)
@@ -568,8 +499,6 @@ class TablutGame(Game):
         if for_side == 1:
             return cell in board['white_positions']
         return cell in board['black_positions']
-
-    # ── Terminal / winner ─────────────────────────────────────────────────────
 
     def _is_terminal(self, state) -> bool:
         if isinstance(state, dict) and 'board' in state:
@@ -585,8 +514,6 @@ class TablutGame(Game):
         if not self._get_raw_moves(board):
             return True
         # Draw: position has appeared more than repeated_moves_allowed times.
-        # We use 2 here, matching the Java default of repeated_moves_allowed=2,
-        # meaning a position appearing a 3rd time triggers a draw.
         if state.get('repetition_count', 0) >= 2:
             return True
         return False
@@ -614,8 +541,6 @@ class TablutGame(Game):
 
     def _is_escape_square(self, pos) -> bool:
         return pos in self._ESCAPES
-
-    # ── Utility ───────────────────────────────────────────────────────────────
 
     def _inside_board(self, r, c) -> bool:
         return 0 <= r < self._BOARD_SIZE and 0 <= c < self._BOARD_SIZE
