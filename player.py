@@ -165,7 +165,7 @@ def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo):
     Simula la connessione al server Arbitro via Socket.
     """
     
-    # Questo print usa i parametri che abbiamo estratto tramite argparse
+    # usa i parametri che abbiamo estratto tramite argparse
     print(f"[*] In attesa di connettersi all'Arbitro su {ip_arbitro}:{porta_arbitro} come {ruolo}...")
     
     # --- LOGICA DI CONNESSIONE SOCKET  ---
@@ -195,7 +195,7 @@ def gioca_partita(s, ruolo, timeout):
     #history_8 =  [copy.deepcopy(scacchiera_iniziale) for _ in range(8)]
     # Le ultime 8 scacchiere
     draw_history = []    # Per i pareggi
-    pezzi_totali = 25    # Per capire se qualcuno è morto (Tablut: 16 neri + 9 bianchi)
+    pezzi_totali = 25    # 16 neri + 9 bianchi
     move_count=0
     while True:
         # riceve il JSON della scacchiera
@@ -230,7 +230,7 @@ def gioca_partita(s, ruolo, timeout):
             tempo_inizio = time.time()
             
             print(f"[*] È il mio turno ({ruolo}).")
-            #  TablutGame si aspetta questo formato di stato
+            #  formato che si aspetta TablutGame 
             state_root = {
                 'board': board_dict,
                 'history': history_8,
