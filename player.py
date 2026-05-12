@@ -162,6 +162,9 @@ def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_dispo
     next_state, _ = game.getNextState(scacchiera, scacchiera['board']['turn_to_move'], best_action)
     print("[DEBUG] Board dopo la mossa:")
     stampa_scacchiera(next_state['board'])
+
+    print(f"[DEBUG] best_action={best_action} → from=({r0},{c0}) to=({r1},{c1})")
+    print(f"[DEBUG] Java: {lettere[c0]}{9-r0} → {lettere[c1]}{9-r1}")
     return mossa
 
 def recvall(sock, n):
