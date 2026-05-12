@@ -160,6 +160,7 @@ def ricevi_scacchiera(sock):
         return None
         
     current_state = json.loads(json_bytes.decode('utf-8'))
+    print(f"DEBUG RAW JSON: {current_state}") 
     return current_state
 
 def invia_scacchiera(sock, mossa):
