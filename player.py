@@ -122,9 +122,12 @@ def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_dispo
     # Assumendo l'orientamento classico: a=0, 1=0.
     
     lettere = "abcdefghi"
-    casella_partenza = f"{lettere[c0]}{r0 + 1}"
-    casella_arrivo   = f"{lettere[c1]}{r1 + 1}"
+    #casella_partenza = f"{lettere[c0]}{r0 + 1}"
+    #casella_arrivo   = f"{lettere[c1]}{r1 + 1}"
     
+    casella_partenza = f"{lettere[c0]}{9 - r0}"  # ← inverte l'asse
+    casella_arrivo   = f"{lettere[c1]}{9 - r1}"
+
     # Capiamo se stiamo giocando col Bianco o col Nero per metterlo nel JSON
     ruolo_giocatore = "W" if scacchiera['board']['turn_to_move'] == 1 else "B"
 
