@@ -59,7 +59,7 @@ def json_to_board_dict(scacchiera_json):
                 king_pos = (r, c)
                 
     # Nel TablutGame del tuo collega: 1 = BIANCO, 0 = NERO
-    turn_to_move = 1 if turn_str == "W" else 0
+    turn_to_move = 1 if turn_str in ("W", "WHITE" )else 0
     
     return {
         'white_positions': white_pos,
