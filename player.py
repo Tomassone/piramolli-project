@@ -50,11 +50,11 @@ def json_to_board_dict(scacchiera_json):
     for r in range(9):
         for c in range(9):
             val = matrix[r][c]
-            if val == 'W':
+            if val in ('W', 'WHITE'):
                 white_pos.append((r, c))
-            elif val == 'B':
+            elif val in ('B', 'BLACK'):
                 black_pos.append((r, c))
-            elif val == 'K':
+            elif val ('K', 'KING'):
                 king_pos = (r, c)
                 
     # Nel TablutGame del tuo collega: 1 = BIANCO, 0 = NERO
@@ -206,16 +206,16 @@ def gioca_partita(s, ruolo, timeout):
         turn_del_server = scacchiera_ricevuta.get('turn')
         
         # Controllo condizioni di fine partita
-        if turn_del_server == "WW":
+        if turn_del_server in ("WW", "WHITEWIN"):
             print("LA PARTITA È FINITA: HA VINTO IL BIANCO!")
             break
-        elif turn_del_server == "BW":
+        elif turn_del_server in ("BW", "BLACKWIN"):
             print("LA PARTITA È FINITA: HA VINTO IL NERO!")
             break
-        elif turn_del_server == "D":
+        elif turn_del_server in ("D", "DRAW"):
             print("LA PARTITA È FINITA: PAREGGIO!")
             break
-
+        
         board_dict=json_to_board_dict(scacchiera_ricevuta)
         history_8.pop(0)
         history_8.append(board_dict)
@@ -227,8 +227,8 @@ def gioca_partita(s, ruolo, timeout):
         hash_corrente=game._board_hash(board_dict)
         draw_history.append(hash_corrente)
 
-        if (ruolo == "WHITE" and turn_del_server == "W") or \
-           (ruolo == "BLACK" and turn_del_server == "B"):
+        if (ruolo == "WHITE" and turn_del_server in ("W", "WHITE")) or \
+            (ruolo == "BLACK" and turn_del_server in ("B", "BLACK")):
             tempo_inizio = time.time()
             
             print(f"[*] È il mio turno ({ruolo}).")
