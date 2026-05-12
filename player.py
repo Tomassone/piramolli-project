@@ -54,7 +54,7 @@ def json_to_board_dict(scacchiera_json):
                 white_pos.append((r, c))
             elif val in ('B', 'BLACK'):
                 black_pos.append((r, c))
-            elif val ('K', 'KING'):
+            elif val in ('K', 'KING'):
                 king_pos = (r, c)
                 
     # Nel TablutGame del tuo collega: 1 = BIANCO, 0 = NERO
@@ -160,7 +160,6 @@ def ricevi_scacchiera(sock):
         return None
         
     current_state = json.loads(json_bytes.decode('utf-8'))
-    print(f"DEBUG RAW JSON: {current_state}") 
     return current_state
 
 def invia_scacchiera(sock, mossa):
