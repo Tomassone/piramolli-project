@@ -10,7 +10,7 @@ import copy
 import numpy as np
 from OnnxNetWrapper import ONNXNetWrapper  as onnet
 import MCTS
-import dotdict
+from utils import dotdict
 
 # ==============================================================================
 # QUI IMPORTI I CODICI DEI TUOI COLLEGHI (QUANDO SARANNO PRONTI)
