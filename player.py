@@ -36,6 +36,25 @@ from utils import dotdict
 #    "turn": "W"
 #}
  
+def stampa_scacchiera(board_dict):
+    """Stampa la scacchiera nel formato del server Java (es. OOOBBBOOO)"""
+    grid = [['O'] * 9 for _ in range(9)]
+    
+    for (r, c) in board_dict['white_positions']:
+        grid[r][c] = 'W'
+    for (r, c) in board_dict['black_positions']:
+        grid[r][c] = 'B'
+    if board_dict['king_position'] is not None:
+        r, c = board_dict['king_position']
+        grid[r][c] = 'K'
+    
+    print("  a b c d e f g h i")
+    for r in range(9):
+        row_str = ''.join(grid[r])
+        java_row = 9 - r  # riga Java: [0] = riga 9, [8] = riga 1
+        print(f"{java_row} {' '.join(grid[r])}")
+    print()
+
 def json_to_board_dict(scacchiera_json):
     """
     Prende il JSON del server (matrice 9x9 di stringhe) e restituisce 
@@ -334,21 +353,3 @@ if __name__ == "__main__":
     sock= connettiti_all_arbitro(ip_arbitro=ip_server, porta_arbitro=porta_server, ruolo=ruolo)
     gioca_partita(sock, ruolo, timeout_sicuro)
 
-def stampa_scacchiera(board_dict):
-    """Stampa la scacchiera nel formato del server Java (es. OOOBBBOOO)"""
-    grid = [['O'] * 9 for _ in range(9)]
-    
-    for (r, c) in board_dict['white_positions']:
-        grid[r][c] = 'W'
-    for (r, c) in board_dict['black_positions']:
-        grid[r][c] = 'B'
-    if board_dict['king_position'] is not None:
-        r, c = board_dict['king_position']
-        grid[r][c] = 'K'
-    
-    print("  a b c d e f g h i")
-    for r in range(9):
-        row_str = ''.join(grid[r])
-        java_row = 9 - r  # riga Java: [0] = riga 9, [8] = riga 1
-        print(f"{java_row} {' '.join(grid[r])}")
-    print()
