@@ -141,9 +141,7 @@ def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_dispo
     # Assumendo l'orientamento classico: a=0, 1=0.
     
     lettere = "abcdefghi"
-    #casella_partenza = f"{lettere[c0]}{r0 + 1}"
-    #casella_arrivo   = f"{lettere[c1]}{r1 + 1}"
-    
+
     casella_partenza = f"{lettere[c0]}{r0 + 1}"
     casella_arrivo   = f"{lettere[c1]}{r1 + 1}"
 
@@ -158,13 +156,7 @@ def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_dispo
     }
 
     mossa = json.dumps(dizionario_mossa)
-    # DEBUG — mostra la board dopo la mossa
-    next_state, _ = game.getNextState(scacchiera, scacchiera['board']['turn_to_move'], best_action)
-    print("[DEBUG] Board dopo la mossa:")
-    stampa_scacchiera(next_state['board'])
-
-    print(f"[DEBUG] best_action={best_action} → from=({r0},{c0}) to=({r1},{c1})")
-    print(f"[DEBUG] Java: {lettere[c0]}{9-r0} → {lettere[c1]}{9-r1}")
+    
     return mossa
 
 def recvall(sock, n):
@@ -252,7 +244,6 @@ def gioca_partita(s, ruolo, timeout):
         
         board_dict=json_to_board_dict(scacchiera_ricevuta)
         #history_8.pop(0)
-        stampa_scacchiera(board_dict)
         history_8.append(board_dict)
         pezzi_attuali = len(board_dict['white_positions']) + len(board_dict['black_positions'])
         if pezzi_attuali < pezzi_totali:
