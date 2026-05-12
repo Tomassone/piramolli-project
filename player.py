@@ -67,8 +67,8 @@ def json_to_board_dict(scacchiera_json):
     black_pos = []
     king_pos = None
     
-    for c in range(9):
-        for r in range(9):
+    for r in range(9):
+        for c in range(9):
             val = matrix[r][c]
             if val in ('W', 'WHITE'):
                 white_pos.append((r, c))
@@ -158,6 +158,10 @@ def pensa_e_muovi(game, scacchiera, motore_onnx,tempo_inizio, tempo_sicuro_dispo
     }
 
     mossa = json.dumps(dizionario_mossa)
+    # DEBUG — mostra la board dopo la mossa
+    next_state, _ = game.getNextState(scacchiera, scacchiera['board']['turn_to_move'], best_action)
+    print("[DEBUG] Board dopo la mossa:")
+    stampa_scacchiera(next_state['board'])
     return mossa
 
 def recvall(sock, n):
