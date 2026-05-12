@@ -8,7 +8,7 @@ import argparse
 from tablut.TablutGame import TablutGame 
 import copy
 import numpy as np
-import OnnxNetWrapper as onnet
+from OnnxNetWrapper import ONNXNetWrapper  as onnet
 import MCTS
 import dotdict
 
@@ -189,7 +189,7 @@ def connettiti_all_arbitro(ip_arbitro, porta_arbitro, ruolo):
 def gioca_partita(s, ruolo, timeout):
     game = TablutGame()
 
-    motore = onnet("path_model.onnx", game)
+    motore = onnet("modello.onnx", game)
 
 
     scacchiera_iniziale = game.getInitBoard()['board']
