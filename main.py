@@ -14,17 +14,17 @@ coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
 args = dotdict({
     'numIters': 100,            # Iterazioni totali di self-play
-    'numEps': 50,               # Partite per iterazione (Tablut è lenta)
-    'tempThreshold': 15,        # Dopo 10 mosse gioca deterministicamente
-    'updateThreshold': 0.6,    # Accetta nuova rete se vince 55%+ nell'Arena
+    'numEps': 100,               # Partite per iterazione (Tablut è lenta)
+    'tempThreshold': 12,        # Dopo 10 mosse gioca deterministicamente
+    'updateThreshold': 0.52,    # Accetta nuova rete se vince 55%+ nell'Arena
     'maxlenOfQueue': 200000,    # Esempi massimi in memoria
-    'numMCTSSims': 100,          # Simulazioni MCTS per mossa durante self-play
-    'arenaCompare': 30,         # Partite di confronto vecchia vs nuova rete
+    'numMCTSSims': 25,          # Simulazioni MCTS per mossa durante self-play
+    'arenaCompare': 8,         # Partite di confronto vecchia vs nuova rete
     'cpuct': 1.0,
-    'checkpoint': './checkpoints/new/',
-    'load_model': False,
-    'load_folder_file': ('./checkpoints/new', 'best.pth.tar'),
-    'numItersForTrainExamplesHistory': 10,
+    'checkpoint': './checkpoints/crazy/',
+    'load_model': True,
+    'load_folder_file': ('./checkpoints/crazy', 'checkpoint_6.pth.tar'),
+    'numItersForTrainExamplesHistory': 6,
 })
 
 def main():

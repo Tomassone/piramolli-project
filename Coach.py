@@ -52,6 +52,10 @@ class Coach():
 
         while True:
             episodeStep += 1
+            if episodeStep > 220: #threshold max step
+            # Forza un pareggio
+                return [(x[0], x[2], 1e-4) for x in trainExamples]
+
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 

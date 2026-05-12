@@ -48,6 +48,8 @@ class Arena():
 
         while self.game.getGameEnded(board, curPlayer) == 0:
             it += 1
+            if it > 180: # Threshold anti-stallo
+                return 1e-4 # Pareggi
             if verbose:
                 assert self.display
                 print("Turn ", str(it), "Player ", str(curPlayer))

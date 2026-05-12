@@ -89,54 +89,179 @@ class NNetWrapper(NeuralNet):
         self.model = TablutNet(self.board_height, self.board_width, 28, self.action_size)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.0002, weight_decay=1e-4)
 
     def train(self, examples):
         if not examples: return 0.0
         self.model.train()
+
+        batch_size = 256
+        epochs = 10  
+
+        import random
+        import gc
+
+        total_training_loss = 0.0
+        total_batches_all_epochs = 0
         
-        boards, pis, vs = [], [], []
-        for board, pi, v in examples:
-            boards.append(torch.FloatTensor(board))
-            pis.append(torch.FloatTensor(pi))
-            vs.append(torch.FloatTensor([v]))
+        for epoch in range(epochs):
+            np.random.shuffle(examples)
+            epoch_loss = 0.0
+            num_batches = 0
             
-        boards = torch.stack(boards).to(self.device) # (B, 9, 9, 28)
-        pis = torch.stack(pis).to(self.device)       # (B, ActionSize)
-        vs = torch.stack(vs).to(self.device)         # (B, 1)
-        
-        # Estraiamo il turno PRIMA di fare il permute
-        # In encode_state il Plane 25 (indice 25) è 1.0 se Bianco, 0.0 se Nero
-        turns = boards[:, 0, 0, 25].unsqueeze(1)     # (B, 1) - Maschera Bianco
-        mask_white = turns
-        mask_black = 1.0 - turns                     # (B, 1) - Maschera Nero
-        
-        boards = boards.permute(0, 3, 1, 2)          # (B, 28, 9, 9)
-        
-        # Forward pass (calcola tutte e 4 le teste)
-        pw_logits, vw_val, pb_logits, vb_val = self.model(boards)
-        
-        # Loss per le Policy (usiamo la formula manuale per evitare problemi con i batch mascherati)
-        loss_pw = -torch.sum(pis * torch.log_softmax(pw_logits, dim=1), dim=1, keepdim=True)
-        loss_pb = -torch.sum(pis * torch.log_softmax(pb_logits, dim=1), dim=1, keepdim=True)
-        
-        # Loss per le Value
-        loss_vw = (vs - vw_val) ** 2
-        loss_vb = (vs - vb_val) ** 2
-        
-        # IL TRUCCO: Moltiplichiamo le loss per le maschere.
-        # Se era il turno del Bianco (mask_white=1), la loss nera si azzera e viceversa!
-        loss_white = (loss_pw + loss_vw) * mask_white
-        loss_black = (loss_pb + loss_vb) * mask_black
-        
-        total_loss = (loss_white + loss_black).mean()
-        
-        self.optimizer.zero_grad()
-        total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-        self.optimizer.step()
-        
-        return total_loss.item()
+            for i in range(0, len(examples), batch_size):
+                batch_examples = examples[i:i + batch_size]
+
+                boards, pis, vs = [], [], []
+                for board, pi, v in batch_examples:
+                    if isinstance(board, dict):
+                        tensor_board = self.game.encode_state(board)
+                    else:
+                        tensor_board = board
+                    boards.append(torch.FloatTensor(tensor_board))
+                    pis.append(torch.FloatTensor(pi))
+                    vs.append(torch.FloatTensor([v]))
+                    
+                boards = torch.stack(boards).to(self.device) # (B, 9, 9, 28)
+                pis = torch.stack(pis).to(self.device)       # (B, ActionSize)
+                vs = torch.stack(vs).to(self.device)         # (B, 1)
+                
+                # Estraiamo il turno PRIMA di fare il permute
+                # In encode_state il Plane 25 (indice 25) è 1.0 se Bianco, 0.0 se Nero
+                turns = boards[:, 0, 0, 25].unsqueeze(1)     # (B, 1) - Maschera Bianco
+                mask_white = turns
+                mask_black = 1.0 - turns                     # (B, 1) - Maschera Nero
+                
+                boards = boards.permute(0, 3, 1, 2)          # (B, 28, 9, 9)
+                
+                # Forward pass (calcola tutte e 4 le teste)
+                pw_logits, vw_val, pb_logits, vb_val = self.model(boards)
+                
+                # Loss per le Policy (usiamo la formula manuale per evitare problemi con i batch mascherati)
+                loss_pw = -torch.sum(pis * torch.log_softmax(pw_logits, dim=1), dim=1, keepdim=True)
+                loss_pb = -torch.sum(pis * torch.log_softmax(pb_logits, dim=1), dim=1, keepdim=True)
+                
+                # Loss per le Value
+                loss_vw = (vs - vw_val) ** 2
+                loss_vb = (vs - vb_val) ** 2
+                
+                # IL TRUCCO: Moltiplichiamo le loss per le maschere.
+                # Se era il turno del Bianco (mask_white=1), la loss nera si azzera e viceversa!
+                loss_white = (loss_pw + loss_vw) * mask_white
+                loss_black = (loss_pb + loss_vb) * mask_black
+                
+                total_loss = (loss_white + loss_black).mean()
+                
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+                self.optimizer.step()
+
+                epoch_loss += total_loss.item()
+                num_batches += 1
+            
+            total_training_loss += epoch_loss
+            total_batches_all_epochs += num_batches
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+        # Restituisce la loss media dell'intera epoca
+        return total_training_loss / total_batches_all_epochs if total_batches_all_epochs > 0 else 0.0
+
+    def train2(self, examples):
+        if not examples:
+            return 0.0
+
+        self.model.train()
+
+        epochs = 10
+        batch_size = 128
+
+        def extract_board(e):
+            b = e[0]
+            if isinstance(b, dict):
+                return torch.as_tensor(
+                    self.game.encode_state(b), dtype=torch.float32
+                )
+            return torch.as_tensor(b, dtype=torch.float32)
+
+        boards_all = torch.stack(
+            [extract_board(e) for e in examples],
+            dim=0
+        ).to(self.device)
+
+        pis_all = torch.stack(
+            [torch.as_tensor(e[1], dtype=torch.float32) for e in examples],
+            dim=0
+        ).to(self.device)  # (N, action_size)
+
+        vs_all = torch.as_tensor(
+            [[e[2]] for e in examples],
+            dtype=torch.float32,
+            device=self.device
+        )  # (N, 1)
+
+        turns = boards_all[:, 0, 0, 25]  # (N,)
+        idx_white = (turns == 1.0).nonzero(as_tuple=True)[0]
+        idx_black = (turns != 1.0).nonzero(as_tuple=True)[0]
+
+        total_loss_accum = 0.0
+        num_steps = 0
+
+        for _ in range(epochs):
+
+            if idx_white.numel() > 0:
+                perm_w = idx_white[torch.randperm(idx_white.numel(), device=self.device)]
+                for i in range(0, perm_w.numel(), batch_size):
+                    idx = perm_w[i:i + batch_size]
+
+                    b = boards_all[idx].permute(0, 3, 1, 2)  # (B, 28, 9, 9)
+                    pi = pis_all[idx]
+                    v = vs_all[idx]
+
+                    pw_logits, vw_val, _, _ = self.model(b)
+
+                    loss_pi_w = -torch.sum(
+                        pi * torch.log_softmax(pw_logits, dim=1), dim=1
+                    ).mean()
+                    loss_v_w = torch.mean((v - vw_val) ** 2)
+                    loss = loss_pi_w + loss_v_w
+
+                    self.optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                    self.optimizer.step()
+
+                    total_loss_accum += loss.detach().item()
+                    num_steps += 1
+
+            if idx_black.numel() > 0:
+                perm_b = idx_black[torch.randperm(idx_black.numel(), device=self.device)]
+                for i in range(0, perm_b.numel(), batch_size):
+                    idx = perm_b[i:i + batch_size]
+
+                    b = boards_all[idx].permute(0, 3, 1, 2)  # (B, 28, 9, 9)
+                    pi = pis_all[idx]
+                    v = vs_all[idx]
+
+                    _, _, pb_logits, vb_val = self.model(b)
+
+                    loss_pi_b = -torch.sum(
+                        pi * torch.log_softmax(pb_logits, dim=1), dim=1
+                    ).mean()
+                    loss_v_b = torch.mean((v - vb_val) ** 2)
+                    loss = loss_pi_b + loss_v_b
+
+                    self.optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                    self.optimizer.step()
+
+                    total_loss_accum += loss.detach().item()
+                    num_steps += 1
+
+        return total_loss_accum / max(num_steps, 1)
 
     def predict(self, board):
         self.model.eval()
@@ -180,16 +305,40 @@ class NNetWrapper(NeuralNet):
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-    def export_onnx(self, folder, filename="modello_4teste.onnx"):
-        if not os.path.exists(folder): os.makedirs(folder)
+
+    def export_onnx(self, folder='.', filename='modello_4teste.onnx'):
+        import torch
+        import torch.onnx
+        import os
+
         filepath = os.path.join(folder, filename)
+        
+        # Metti il modello in modalità valutazione
         self.model.eval()
-        dummy_input = torch.randn(1, 28, self.board_height, self.board_width).to(self.device)
+        
+        # Creiamo un tensore dummy della forma esatta che si aspetta la rete
+        dummy_input = torch.randn(1, 28, 9, 9).to(self.device)
+        
+        # Esporta usando il tracer classico (disabilitando Dynamo)
+        import torch.onnx
+        
         torch.onnx.export(
-            self.model, dummy_input, filepath, export_params=True, opset_version=14,
-            do_constant_folding=True, input_names=['input_board'],
-            output_names=['pw_logits', 'vw_val', 'pb_logits', 'vb_val'],
-            dynamic_axes={'input_board': {0: 'batch_size'}}
+            self.model,                     # il modello PyTorch
+            dummy_input,                    # l'input di test
+            filepath,                       # dove salvare il file
+            export_params=True,             # salva i pesi allenati all'interno del file
+            opset_version=14,               # la versione ONNX (14 è stabilissima)
+            do_constant_folding=True,       # ottimizzazione
+            input_names=['input_board'],    # il nome dell'input che useremo in inferenza
+            output_names=['pw_logits', 'vw_val', 'pb_logits', 'vb_val'], # i 4 output
+            dynamic_axes={
+                'input_board': {0: 'batch_size'},
+                'pw_logits': {0: 'batch_size'},
+                'vw_val': {0: 'batch_size'},
+                'pb_logits': {0: 'batch_size'},
+                'vb_val': {0: 'batch_size'}
+            },
+            dynamo=False  # <--- QUESTO SALVA LA VITA, DISABILITA IL MOTORE NUOVO
         )
 
 
