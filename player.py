@@ -226,6 +226,7 @@ def gioca_partita(s, ruolo, timeout):
         
         board_dict=json_to_board_dict(scacchiera_ricevuta)
         #history_8.pop(0)
+        stampa_scacchiera(board_dict)
         history_8.append(board_dict)
         pezzi_attuali = len(board_dict['white_positions']) + len(board_dict['black_positions'])
         if pezzi_attuali < pezzi_totali:
@@ -332,3 +333,22 @@ if __name__ == "__main__":
 
     sock= connettiti_all_arbitro(ip_arbitro=ip_server, porta_arbitro=porta_server, ruolo=ruolo)
     gioca_partita(sock, ruolo, timeout_sicuro)
+
+def stampa_scacchiera(board_dict):
+    """Stampa la scacchiera nel formato del server Java (es. OOOBBBOOO)"""
+    grid = [['O'] * 9 for _ in range(9)]
+    
+    for (r, c) in board_dict['white_positions']:
+        grid[r][c] = 'W'
+    for (r, c) in board_dict['black_positions']:
+        grid[r][c] = 'B'
+    if board_dict['king_position'] is not None:
+        r, c = board_dict['king_position']
+        grid[r][c] = 'K'
+    
+    print("  a b c d e f g h i")
+    for r in range(9):
+        row_str = ''.join(grid[r])
+        java_row = 9 - r  # riga Java: [0] = riga 9, [8] = riga 1
+        print(f"{java_row} {' '.join(grid[r])}")
+    print()
